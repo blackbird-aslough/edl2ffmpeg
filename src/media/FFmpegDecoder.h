@@ -1,0 +1,62 @@
+#pragma once
+
+#include "media/MediaTypes.h"
+#include "utils/FrameBuffer.h"
+#include <string>
+#include <memory>
+
+namespace media {
+
+class FFmpegDecoder {
+public:
+	FFmpegDecoder(const std::string& filename);
+	~FFmpegDecoder();
+	
+	// Disable copy
+	FFmpegDecoder(const FFmpegDecoder&) = delete;
+	FFmpegDecoder& operator=(const FFmpegDecoder&) = delete;
+	
+	// Enable move
+	FFmpegDecoder(FFmpegDecoder&& other) noexcept;
+	FFmpegDecoder& operator=(FFmpegDecoder&& other) noexcept;
+	
+	// Seek to specific frame number
+	bool seekToFrame(int64_t frameNumber);
+	
+	// Get decoded frame
+	std::shared_ptr<AVFrame> getFrame(int64_t frameNumber);
+	
+	// Media properties
+	int getWidth() const { return width; }
+	int getHeight() const { return height; }
+	AVPixelFormat getPixelFormat() const { return pixelFormat; }
+	AVRational getFrameRate() const { return frameRate; }
+	int64_t getTotalFrames() const { return totalFrames; }
+	
+private:
+	void openFile(const std::string& filename);
+	void findVideoStream();
+	void setupDecoder();
+	void cleanup();
+	bool decodeNextFrame(AVFrame* frame);
+	int64_t ptsToFrameNumber(int64_t pts) const;
+	int64_t frameNumberToPts(int64_t frameNumber) const;
+	
+	AVFormatContext* formatCtx = nullptr;
+	AVCodecContext* codecCtx = nullptr;
+	AVPacket* packet = nullptr;
+	SwsContext* swsCtx = nullptr;
+	
+	int videoStreamIndex = -1;
+	int width = 0;
+	int height = 0;
+	AVPixelFormat pixelFormat = AV_PIX_FMT_NONE;
+	AVRational frameRate = {0, 1};
+	AVRational timeBase = {0, 1};
+	int64_t totalFrames = 0;
+	int64_t currentFrameNumber = -1;
+	
+	utils::FrameBufferPool framePool;
+};
+
+} // namespace media

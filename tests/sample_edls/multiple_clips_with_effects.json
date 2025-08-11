@@ -1,0 +1,63 @@
+{
+	"fps": 30,
+	"width": 1920,
+	"height": 1080,
+	"clips": [
+		{
+			"source": {
+				"mediaId": "clip1.mp4",
+				"trackId": "V1",
+				"in": 5,
+				"out": 15
+			},
+			"in": 0,
+			"out": 10,
+			"track": {
+				"type": "video",
+				"number": 1
+			},
+			"topFade": 1.0,
+			"tailFade": 0.5
+		},
+		{
+			"source": {
+				"mediaId": "clip2.mp4",
+				"trackId": "V1",
+				"in": 0,
+				"out": 8
+			},
+			"in": 10,
+			"out": 18,
+			"track": {
+				"type": "video",
+				"number": 1
+			},
+			"motion": {
+				"panX": 0.1,
+				"panY": -0.1,
+				"zoomX": 1.2,
+				"zoomY": 1.2,
+				"rotation": 5
+			},
+			"transition": {
+				"type": "dissolve",
+				"duration": 1.0
+			}
+		},
+		{
+			"source": {
+				"mediaId": "clip3.mp4",
+				"trackId": "V1",
+				"in": 10,
+				"out": 15
+			},
+			"in": 18,
+			"out": 23,
+			"track": {
+				"type": "video",
+				"number": 1
+			},
+			"tailFade": 2.0
+		}
+	]
+}
