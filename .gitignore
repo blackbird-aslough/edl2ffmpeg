@@ -1,0 +1,106 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+edl2ffmpeg
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Profiling
+gmon.out
+*.prof
+*.gcda
+*.gcno
+*.gcov
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test output files
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.mxf
+output.*
+test_output.*
+
+# Core dumps
+core
+core.*
+
+# Valgrind
+*.memcheck
+*.valgrind
+
+# Dependencies
+deps/
+third_party/
+
+# Package manager
+conan/
+.conan/
+
+# Documentation build
+docs/_build/
+docs/html/
+docs/latex/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+
+# Logs
+*.log
+log/
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
