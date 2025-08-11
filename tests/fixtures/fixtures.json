@@ -1,0 +1,207 @@
+{
+	"fixtures": {
+		"test_patterns": [
+			{
+				"name": "test_bars_1080p_30fps_10s.mp4",
+				"description": "SMPTE color bars at 1080p 30fps",
+				"duration": 10.0,
+				"fps": 30,
+				"width": 1920,
+				"height": 1080,
+				"format": "yuv420p",
+				"has_audio": false
+			},
+			{
+				"name": "test_bars_720p_60fps_5s.mp4",
+				"description": "SMPTE color bars at 720p 60fps",
+				"duration": 5.0,
+				"fps": 60,
+				"width": 1280,
+				"height": 720,
+				"format": "yuv420p",
+				"has_audio": false
+			},
+			{
+				"name": "counter_1080p_30fps_10s.mp4",
+				"description": "Test pattern with frame counter",
+				"duration": 10.0,
+				"fps": 30,
+				"width": 1920,
+				"height": 1080,
+				"format": "yuv420p",
+				"has_audio": false,
+				"frame_accurate": true
+			}
+		],
+		"solid_colors": [
+			{
+				"name": "color_red_1080p_30fps_5s.mp4",
+				"description": "Solid red for testing color effects",
+				"duration": 5.0,
+				"fps": 30,
+				"width": 1920,
+				"height": 1080,
+				"format": "yuv420p",
+				"color": "#FF0000"
+			},
+			{
+				"name": "color_green_1080p_30fps_5s.mp4",
+				"description": "Solid green for testing color effects",
+				"duration": 5.0,
+				"fps": 30,
+				"width": 1920,
+				"height": 1080,
+				"format": "yuv420p",
+				"color": "#00FF00"
+			},
+			{
+				"name": "color_blue_1080p_30fps_5s.mp4",
+				"description": "Solid blue for testing color effects",
+				"duration": 5.0,
+				"fps": 30,
+				"width": 1920,
+				"height": 1080,
+				"format": "yuv420p",
+				"color": "#0000FF"
+			}
+		],
+		"gradients": [
+			{
+				"name": "gradient_h_1080p_30fps_5s.mp4",
+				"description": "Horizontal gradient for brightness/contrast testing",
+				"duration": 5.0,
+				"fps": 30,
+				"width": 1920,
+				"height": 1080,
+				"format": "yuv420p",
+				"gradient_type": "horizontal"
+			},
+			{
+				"name": "gradient_v_1080p_30fps_5s.mp4",
+				"description": "Vertical gradient for brightness/contrast testing",
+				"duration": 5.0,
+				"fps": 30,
+				"width": 1920,
+				"height": 1080,
+				"format": "yuv420p",
+				"gradient_type": "vertical"
+			}
+		],
+		"frame_rates": [
+			{
+				"name": "test_bars_1080p_24fps_5s.mp4",
+				"description": "24fps for film frame rate testing",
+				"duration": 5.0,
+				"fps": 24,
+				"width": 1920,
+				"height": 1080
+			},
+			{
+				"name": "test_bars_1080p_25fps_5s.mp4",
+				"description": "25fps for PAL testing",
+				"duration": 5.0,
+				"fps": 25,
+				"width": 1920,
+				"height": 1080
+			},
+			{
+				"name": "test_bars_1080p_50fps_5s.mp4",
+				"description": "50fps for high frame rate testing",
+				"duration": 5.0,
+				"fps": 50,
+				"width": 1920,
+				"height": 1080
+			}
+		],
+		"resolutions": [
+			{
+				"name": "test_bars_480p_30fps_5s.mp4",
+				"description": "SD resolution for scaling tests",
+				"duration": 5.0,
+				"fps": 30,
+				"width": 640,
+				"height": 480
+			},
+			{
+				"name": "test_bars_4k_30fps_3s.mp4",
+				"description": "4K resolution for scaling tests",
+				"duration": 3.0,
+				"fps": 30,
+				"width": 3840,
+				"height": 2160
+			}
+		],
+		"complex": [
+			{
+				"name": "complex_split_screen_10s.mp4",
+				"description": "Split screen with effects and audio",
+				"duration": 10.0,
+				"fps": 30,
+				"width": 1920,
+				"height": 1080,
+				"has_audio": true,
+				"audio_sample_rate": 48000
+			}
+		],
+		"audio": [
+			{
+				"name": "tone_1khz_48k_5s.wav",
+				"description": "1kHz sine wave test tone",
+				"duration": 5.0,
+				"sample_rate": 48000,
+				"frequency": 1000,
+				"channels": 1
+			},
+			{
+				"name": "sweep_48k_5s.wav",
+				"description": "Frequency sweep for audio testing",
+				"duration": 5.0,
+				"sample_rate": 48000,
+				"channels": 1
+			}
+		]
+	},
+	"test_edls": {
+		"simple_cut": {
+			"description": "Basic cut between two clips",
+			"fixtures": ["test_bars_1080p_30fps_10s.mp4", "color_red_1080p_30fps_5s.mp4"],
+			"expected_duration": 5.0
+		},
+		"fade_transition": {
+			"description": "Fade between clips",
+			"fixtures": ["color_red_1080p_30fps_5s.mp4", "color_blue_1080p_30fps_5s.mp4"],
+			"expected_duration": 5.0,
+			"transition_duration": 1.0
+		},
+		"brightness_effect": {
+			"description": "Test brightness adjustment",
+			"fixtures": ["gradient_h_1080p_30fps_5s.mp4"],
+			"effects": ["brightness"],
+			"expected_duration": 5.0
+		},
+		"contrast_effect": {
+			"description": "Test contrast adjustment",
+			"fixtures": ["gradient_v_1080p_30fps_5s.mp4"],
+			"effects": ["contrast"],
+			"expected_duration": 5.0
+		},
+		"frame_accurate_seek": {
+			"description": "Test precise frame seeking",
+			"fixtures": ["counter_1080p_30fps_10s.mp4"],
+			"in_point": 2.5,
+			"out_point": 7.5,
+			"expected_duration": 5.0
+		},
+		"mixed_framerates": {
+			"description": "Test handling different frame rates",
+			"fixtures": ["test_bars_1080p_24fps_5s.mp4", "test_bars_1080p_30fps_10s.mp4"],
+			"expected_duration": 7.0
+		},
+		"scaling": {
+			"description": "Test resolution scaling",
+			"fixtures": ["test_bars_480p_30fps_5s.mp4"],
+			"output_resolution": "1920x1080",
+			"expected_duration": 5.0
+		}
+	}
+}

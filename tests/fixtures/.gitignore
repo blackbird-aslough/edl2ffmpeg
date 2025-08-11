@@ -1,0 +1,15 @@
+# Generated test fixtures
+*.mp4
+*.wav
+*.mov
+*.avi
+*.mkv
+
+# But keep the generator scripts and config
+!generate_fixtures.sh
+!fixtures.json
+!.gitignore
+
+# Checksums are generated but not tracked
+checksums.sha256
+fixtures.txt
