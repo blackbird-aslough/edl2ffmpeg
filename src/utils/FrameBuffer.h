@@ -13,6 +13,8 @@ public:
 	FrameBufferPool(int width, int height, AVPixelFormat format,
 		size_t poolSize = 10);
 	
+	~FrameBufferPool();
+	
 	// Move operations
 	FrameBufferPool(FrameBufferPool&& other) noexcept;
 	FrameBufferPool& operator=(FrameBufferPool&& other) noexcept;
@@ -22,14 +24,12 @@ public:
 	FrameBufferPool& operator=(const FrameBufferPool&) = delete;
 	
 	std::shared_ptr<AVFrame> getFrame();
-	void returnFrame(AVFrame* frame);
 	
 	int getWidth() const { return width; }
 	int getHeight() const { return height; }
 	AVPixelFormat getFormat() const { return format; }
 	
 private:
-	void initializePool();
 	std::shared_ptr<AVFrame> createFrame();
 	
 	int width = 0;

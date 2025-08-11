@@ -15,9 +15,13 @@ FrameBufferPool::FrameBufferPool(int width, int height, AVPixelFormat format,
 	, format(format)
 	, poolSize(poolSize) {
 	
-	if (width > 0 && height > 0 && format != AV_PIX_FMT_NONE) {
-		initializePool();
-	}
+	// Don't pre-allocate frames - create them on demand
+	Logger::debug("Frame buffer pool initialized: {}x{}, format: {}",
+		width, height, format);
+}
+
+FrameBufferPool::~FrameBufferPool() {
+	// Frames will be automatically cleaned up by shared_ptr destructors
 }
 
 FrameBufferPool::FrameBufferPool(FrameBufferPool&& other) noexcept
@@ -51,18 +55,6 @@ FrameBufferPool& FrameBufferPool::operator=(FrameBufferPool&& other) noexcept {
 	return *this;
 }
 
-void FrameBufferPool::initializePool() {
-	std::lock_guard<std::mutex> lock(poolMutex);
-	
-	// Pre-allocate frames
-	for (size_t i = 0; i < poolSize / 2; ++i) {
-		availableFrames.push(createFrame());
-	}
-	
-	Logger::debug("Frame buffer pool initialized: {}x{}, format: {}, pre-allocated: {}",
-		width, height, format, poolSize / 2);
-}
-
 std::shared_ptr<AVFrame> FrameBufferPool::createFrame() {
 	AVFrame* frame = av_frame_alloc();
 	if (!frame) {
@@ -79,15 +71,8 @@ std::shared_ptr<AVFrame> FrameBufferPool::createFrame() {
 		throw std::runtime_error("Failed to allocate frame buffer");
 	}
 	
-	totalAllocated++;
-	
-	// Use custom deleter to return frame to pool
-	return std::shared_ptr<AVFrame>(frame,
-		[this](AVFrame* f) {
-			if (f) {
-				returnFrame(f);
-			}
-		});
+	// Use the AVFrameDeleter from MediaTypes.h
+	return std::shared_ptr<AVFrame>(frame, media::AVFrameDeleter());
 }
 
 std::shared_ptr<AVFrame> FrameBufferPool::getFrame() {
@@ -103,44 +88,14 @@ std::shared_ptr<AVFrame> FrameBufferPool::getFrame() {
 		return frame;
 	}
 	
-	// Allocate new frame if pool is empty
-	if (totalAllocated < poolSize * 2) {
-		return createFrame();
+	// Create new frame
+	totalAllocated++;
+	if (totalAllocated > poolSize * 2) {
+		Logger::warn("Frame buffer pool: allocated {} frames (pool size: {})",
+			totalAllocated, poolSize);
 	}
 	
-	// Pool exhausted, create frame anyway but log warning
-	Logger::warn("Frame buffer pool exhausted, allocating beyond limit");
 	return createFrame();
-}
-
-void FrameBufferPool::returnFrame(AVFrame* frame) {
-	if (!frame) {
-		return;
-	}
-	
-	std::lock_guard<std::mutex> lock(poolMutex);
-	
-	// Only return to pool if we haven't exceeded the maximum
-	if (availableFrames.size() < poolSize) {
-		// Clear frame references but keep the buffer allocated
-		av_frame_unref(frame);
-		
-		// Re-setup frame parameters
-		frame->format = format;
-		frame->width = width;
-		frame->height = height;
-		
-		// Note: We're storing a raw pointer in shared_ptr with custom deleter
-		// This is a simplified approach - in production, we'd need more careful management
-		availableFrames.push(std::shared_ptr<AVFrame>(frame,
-			[](AVFrame* f) {
-				// Don't delete - will be managed by pool
-			}));
-	} else {
-		// Pool is full, free the frame
-		av_frame_free(&frame);
-		totalAllocated--;
-	}
 }
 
 } // namespace utils

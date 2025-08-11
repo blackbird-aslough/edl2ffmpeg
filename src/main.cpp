@@ -251,8 +251,8 @@ int main(int argc, char* argv[]) {
 		
 		utils::Logger::info("Rendering complete!");
 		utils::Logger::info("Total frames: {}", frameCount);
-		utils::Logger::info("Total time: {:.2f} seconds", totalTime.count());
-		utils::Logger::info("Average FPS: {:.2f}", avgFps);
+		utils::Logger::info("Total time: {} seconds", totalTime.count());
+		utils::Logger::info("Average FPS: {}", avgFps);
 		utils::Logger::info("Output file: {}", opts.outputFile);
 		
 		return 0;
