@@ -7,6 +7,9 @@
 
 namespace utils {
 
+// Forward declaration
+class FramePoolDeleter;
+
 class FrameBufferPool {
 public:
 	FrameBufferPool() = default;
@@ -24,21 +27,22 @@ public:
 	FrameBufferPool& operator=(const FrameBufferPool&) = delete;
 	
 	std::shared_ptr<AVFrame> getFrame();
+	void returnFrame(AVFrame* frame);
 	
 	int getWidth() const { return width; }
 	int getHeight() const { return height; }
 	AVPixelFormat getFormat() const { return format; }
 	
 private:
-	std::shared_ptr<AVFrame> createFrame();
+	AVFrame* createFrame();
 	
 	int width = 0;
 	int height = 0;
 	AVPixelFormat format = AV_PIX_FMT_NONE;
 	size_t poolSize = 10;
 	
-	std::queue<std::shared_ptr<AVFrame>> availableFrames;
-	std::mutex poolMutex;
+	std::queue<AVFrame*> availableFrames;
+	mutable std::mutex poolMutex;
 	size_t totalAllocated = 0;
 };
 
