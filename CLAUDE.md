@@ -4,6 +4,8 @@
 
 edl2ffmpeg is a high-performance EDL (Edit Decision List) renderer that processes JSON-formatted EDL files and outputs compressed video using direct FFmpeg library integration. This eliminates the performance overhead of pipe-based communication used in the original ftv_toffmpeg tool.
 
+**GitHub Repository:** https://github.com/blackbird-aslough/edl2ffmpeg (private)
+
 ### Core Purpose
 - Render EDL files to video with maximum performance
 - Direct FFmpeg library integration (no pipes/subprocesses)
