@@ -129,6 +129,41 @@ std::string getMediaPath(const std::string& uri, const std::string& edlPath) {
 	return uri;
 }
 
+// Check if instruction requires CPU processing (effects, transforms, etc.)
+bool requiresCPUProcessing(const compositor::CompositorInstruction& instruction) {
+	// Check for effects
+	if (!instruction.effects.empty()) {
+		return true;
+	}
+	
+	// Check for fade
+	if (instruction.fade < 1.0f) {
+		return true;
+	}
+	
+	// Check for transforms
+	if (std::abs(instruction.panX) > 0.001f ||
+		std::abs(instruction.panY) > 0.001f ||
+		std::abs(instruction.zoomX - 1.0f) > 0.001f ||
+		std::abs(instruction.zoomY - 1.0f) > 0.001f ||
+		std::abs(instruction.rotation) > 0.001f ||
+		instruction.flip) {
+		return true;
+	}
+	
+	// Check for transitions
+	if (instruction.transition.type != compositor::TransitionInfo::None) {
+		return true;
+	}
+	
+	// Check if it's not a simple draw frame
+	if (instruction.type != compositor::CompositorInstruction::DrawFrame) {
+		return true;
+	}
+	
+	return false;
+}
+
 void printProgress(int current, int total, double fps, double /*elapsed*/) {
 	double progress = (double)current / total * 100.0;
 	int barWidth = 50;
@@ -199,6 +234,8 @@ int main(int argc, char* argv[]) {
 					decoderConfig.hwConfig.type = media::HardwareAcceleration::stringToHWAccelType(opts.hwAccelType);
 					decoderConfig.hwConfig.deviceIndex = opts.hwDevice;
 					decoderConfig.hwConfig.allowFallback = true;
+					// Enable GPU passthrough if both decode and encode use hardware
+					decoderConfig.keepHardwareFrames = opts.hwDecode && opts.hwEncode;
 					
 					decoders[uri] = std::make_unique<media::FFmpegDecoder>(mediaPath, decoderConfig);
 				} catch (const std::exception& e) {
@@ -234,6 +271,25 @@ int main(int argc, char* argv[]) {
 		
 		utils::Logger::info("Processing {} frames...", totalFrames);
 		
+		// Analyze if GPU passthrough is possible
+		bool canUseGPUPassthrough = opts.hwDecode && opts.hwEncode;
+		if (canUseGPUPassthrough) {
+			// Check if any frame needs CPU processing
+			bool needsCPU = false;
+			for (const auto& instruction : generator) {
+				if (requiresCPUProcessing(instruction)) {
+					needsCPU = true;
+					break;
+				}
+			}
+			
+			if (!needsCPU) {
+				utils::Logger::info("GPU passthrough enabled - zero-copy pipeline active");
+			} else {
+				utils::Logger::info("GPU acceleration enabled but some frames require CPU processing");
+			}
+		}
+		
 		// Process frames
 		auto startTime = std::chrono::high_resolution_clock::now();
 		int frameCount = 0;
@@ -242,6 +298,39 @@ int main(int argc, char* argv[]) {
 		for (const auto& instruction : generator) {
 			std::shared_ptr<AVFrame> outputFrame;
 			
+			// Check if we can use GPU passthrough (no effects, transforms, or color generation)
+			bool useGPUPassthrough = opts.hwDecode && opts.hwEncode && 
+									 !requiresCPUProcessing(instruction) &&
+									 instruction.type == compositor::CompositorInstruction::DrawFrame;
+			
+			if (useGPUPassthrough) {
+				// GPU passthrough path - no CPU processing needed
+				auto& decoder = decoders[instruction.uri];
+				if (decoder) {
+					// Get hardware frame directly from decoder
+					auto hwFrame = decoder->getHardwareFrame(instruction.sourceFrameNumber);
+					if (hwFrame) {
+						// Write hardware frame directly to encoder
+						encoder.writeHardwareFrame(hwFrame.get());
+						frameCount++;
+						
+						// Update progress
+						if (!opts.quiet && (frameCount % progressUpdateInterval == 0 || frameCount == totalFrames)) {
+							auto currentTime = std::chrono::high_resolution_clock::now();
+							std::chrono::duration<double> elapsed = currentTime - startTime;
+							double fps = frameCount / elapsed.count();
+							printProgress(frameCount, totalFrames, fps, elapsed.count());
+						}
+						continue;
+					} else {
+						// Fall back to CPU path if hardware frame failed
+						utils::Logger::warn("Failed to get hardware frame, falling back to CPU processing");
+						useGPUPassthrough = false;
+					}
+				}
+			}
+			
+			// CPU processing path (original code)
 			if (instruction.type == compositor::CompositorInstruction::DrawFrame) {
 				// Get the decoder for this media
 				auto& decoder = decoders[instruction.uri];

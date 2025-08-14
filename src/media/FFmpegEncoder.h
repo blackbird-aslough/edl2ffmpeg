@@ -36,6 +36,7 @@ public:
 	FFmpegEncoder& operator=(FFmpegEncoder&& other) noexcept;
 	
 	bool writeFrame(AVFrame* frame);
+	bool writeHardwareFrame(AVFrame* frame);  // Direct GPU frame encoding
 	bool finalize();
 	
 	int64_t getFrameCount() const { return frameCount; }
@@ -44,6 +45,7 @@ private:
 	void setupEncoder(const std::string& filename, const Config& config);
 	void cleanup();
 	bool encodeFrame(AVFrame* frame);
+	bool encodeHardwareFrame(AVFrame* frame);
 	bool flushEncoder();
 	
 	AVFormatContext* formatCtx = nullptr;

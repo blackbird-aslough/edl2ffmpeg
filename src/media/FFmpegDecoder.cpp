@@ -346,6 +346,65 @@ std::shared_ptr<AVFrame> FFmpegDecoder::getFrame(int64_t frameNumber) {
 	return frame;
 }
 
+std::shared_ptr<AVFrame> FFmpegDecoder::getHardwareFrame(int64_t frameNumber) {
+	if (!usingHardware) {
+		utils::Logger::warn("getHardwareFrame called but hardware decoding is not enabled");
+		return getFrame(frameNumber);
+	}
+	
+	if (!seekToFrame(frameNumber)) {
+		return nullptr;
+	}
+	
+	// Allocate a hardware frame
+	std::shared_ptr<AVFrame> hwFrame(av_frame_alloc(), [](AVFrame* f) {
+		if (f) av_frame_free(&f);
+	});
+	
+	if (!hwFrame) {
+		return nullptr;
+	}
+	
+	if (!decodeNextHardwareFrame(hwFrame.get())) {
+		return nullptr;
+	}
+	
+	return hwFrame;
+}
+
+bool FFmpegDecoder::decodeNextHardwareFrame(AVFrame* frame) {
+	// Decode directly to hardware frame without transfer
+	while (true) {
+		int ret = av_read_frame(formatCtx, packet);
+		if (ret < 0) {
+			if (ret == AVERROR_EOF) {
+				// Try to flush decoder
+				if (FFmpegCompat::decodeVideoFrame(codecCtx, frame, nullptr)) {
+					currentFrameNumber++;
+					return true;
+				}
+			}
+			return false;
+		}
+		
+		if (packet->stream_index != videoStreamIndex) {
+			av_packet_unref(packet);
+			continue;
+		}
+		
+		if (FFmpegCompat::decodeVideoFrame(codecCtx, frame, packet)) {
+			av_packet_unref(packet);
+			currentFrameNumber++;
+			// Return the hardware frame directly without transfer
+			return true;
+		}
+		
+		av_packet_unref(packet);
+	}
+	
+	return false;
+}
+
 bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
 	// Use a temporary frame for hardware decoding
 	AVFrame* decodedFrame = frame;

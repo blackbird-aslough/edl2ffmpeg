@@ -167,9 +167,25 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 			HardwareAcceleration::getBestAccelType() : config.hwConfig.type;
 		AVPixelFormat hwPixFmt = HardwareAcceleration::getHWPixelFormat(hwType);
 		
-		// For hardware encoders, we typically use the software format
-		// The encoder will handle the upload to GPU
-		codecCtx->pix_fmt = config.pixelFormat;
+		// For hardware encoders, we need to set up frames context
+		// This allows direct GPU-to-GPU transfer
+		AVBufferRef* hwFramesRef = av_hwframe_ctx_alloc(hwDeviceCtx);
+		if (hwFramesRef) {
+			AVHWFramesContext* hwFramesCtx = (AVHWFramesContext*)hwFramesRef->data;
+			hwFramesCtx->format = hwPixFmt;
+			hwFramesCtx->sw_format = config.pixelFormat;
+			hwFramesCtx->width = config.width;
+			hwFramesCtx->height = config.height;
+			hwFramesCtx->initial_pool_size = 20;
+			
+			if (av_hwframe_ctx_init(hwFramesRef) >= 0) {
+				codecCtx->hw_frames_ctx = hwFramesRef;
+			} else {
+				av_buffer_unref(&hwFramesRef);
+			}
+		}
+		
+		codecCtx->pix_fmt = hwPixFmt;
 		codecCtx->sw_pix_fmt = config.pixelFormat;
 	} else {
 		codecCtx->pix_fmt = config.pixelFormat;
@@ -395,6 +411,85 @@ bool FFmpegEncoder::writeFrame(AVFrame* frame) {
 	frameToEncode->pts = pts++;
 	
 	return encodeFrame(frameToEncode);
+}
+
+bool FFmpegEncoder::writeHardwareFrame(AVFrame* frame) {
+	if (!frame || finalized) {
+		return false;
+	}
+	
+	if (!usingHardware) {
+		utils::Logger::warn("writeHardwareFrame called but hardware encoding is not enabled");
+		return writeFrame(frame);
+	}
+	
+	// For hardware frames, we can encode directly without transfer
+	// Check if the frame is actually a hardware frame
+	if (!HardwareAcceleration::isHardwareFrame(frame)) {
+		// Need to upload to GPU
+		if (!hwFrame) {
+			hwFrame = av_frame_alloc();
+			if (!hwFrame) {
+				return false;
+			}
+		}
+		
+		// Set the hardware frame format
+		hwFrame->format = HardwareAcceleration::getHWPixelFormat(
+			config.hwConfig.type == HWAccelType::Auto ? 
+			HardwareAcceleration::getBestAccelType() : config.hwConfig.type
+		);
+		hwFrame->width = frame->width;
+		hwFrame->height = frame->height;
+		hwFrame->hw_frames_ctx = av_buffer_ref(codecCtx->hw_frames_ctx);
+		
+		int ret = av_hwframe_get_buffer(codecCtx->hw_frames_ctx, hwFrame, 0);
+		if (ret < 0) {
+			utils::Logger::error("Failed to get hardware buffer");
+			return false;
+		}
+		
+		// Transfer software frame to hardware
+		ret = av_hwframe_transfer_data(hwFrame, frame, 0);
+		if (ret < 0) {
+			utils::Logger::error("Failed to transfer frame to GPU");
+			av_frame_unref(hwFrame);
+			return false;
+		}
+		
+		hwFrame->pts = pts++;
+		return encodeHardwareFrame(hwFrame);
+	} else {
+		// Frame is already on GPU, encode directly
+		frame->pts = pts++;
+		return encodeHardwareFrame(frame);
+	}
+}
+
+bool FFmpegEncoder::encodeHardwareFrame(AVFrame* frame) {
+	// Encode hardware frame directly
+	if (FFmpegCompat::encodeVideoFrame(codecCtx, frame, packet)) {
+		// Rescale timestamps
+		av_packet_rescale_ts(packet, codecCtx->time_base, videoStream->time_base);
+		packet->stream_index = videoStream->index;
+		
+		// Write packet
+		int ret = av_interleaved_write_frame(formatCtx, packet);
+		av_packet_unref(packet);
+		
+		if (ret < 0) {
+			utils::Logger::error("Error writing hardware packet");
+			return false;
+		}
+		
+		frameCount++;
+	}
+	
+	if (frame == hwFrame) {
+		av_frame_unref(hwFrame);
+	}
+	
+	return true;
 }
 
 bool FFmpegEncoder::encodeFrame(AVFrame* frame) {

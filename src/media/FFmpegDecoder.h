@@ -16,6 +16,7 @@ public:
 		// Hardware acceleration settings
 		HWConfig hwConfig;
 		bool useHardwareDecoder = false;  // Enable hardware decoding
+		bool keepHardwareFrames = false;  // Keep frames on GPU (for passthrough)
 	};
 	
 	FFmpegDecoder(const std::string& filename);
@@ -36,6 +37,9 @@ public:
 	// Get decoded frame
 	std::shared_ptr<AVFrame> getFrame(int64_t frameNumber);
 	
+	// Get decoded frame without transfer to CPU (for GPU passthrough)
+	std::shared_ptr<AVFrame> getHardwareFrame(int64_t frameNumber);
+	
 	// Media properties
 	int getWidth() const { return width; }
 	int getHeight() const { return height; }
@@ -49,6 +53,7 @@ private:
 	void setupDecoder();
 	void cleanup();
 	bool decodeNextFrame(AVFrame* frame);
+	bool decodeNextHardwareFrame(AVFrame* frame);
 	int64_t ptsToFrameNumber(int64_t pts) const;
 	int64_t frameNumberToPts(int64_t frameNumber) const;
 	
