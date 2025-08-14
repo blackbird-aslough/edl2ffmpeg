@@ -198,12 +198,24 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	codecCtx->bit_rate = config.bitrate;
 	codecCtx->gop_size = 300; // 300 frames GOP - matching ftv_toffmpeg default
 	
-	// VideoToolbox has issues with B-frames and PTS/DTS ordering
-	// Disable B-frames for VideoToolbox, use 2 for other codecs
-	if (codecName.find("videotoolbox") != std::string::npos) {
-		codecCtx->max_b_frames = 0; // No B-frames for VideoToolbox
+	// Configure B-frames based on encoder type
+	// VideoToolbox with hardware frames has PTS/DTS synchronization issues with B-frames
+	// when using GPU passthrough mode, so we disable B-frames for hardware encoding
+	if (codecName.find("videotoolbox") != std::string::npos && usingHardware) {
+		// Disable B-frames for hardware VideoToolbox to avoid PTS/DTS ordering issues
+		// in GPU passthrough mode. Software VideoToolbox can still use B-frames.
+		codecCtx->max_b_frames = 0;
+		utils::Logger::debug("Disabling B-frames for hardware VideoToolbox encoder to ensure PTS/DTS compatibility");
 	} else {
-		codecCtx->max_b_frames = 2; // Default B-frames for other codecs
+		// Enable B-frames for software encoders and non-VideoToolbox hardware encoders
+		codecCtx->max_b_frames = 2;
+		utils::Logger::debug("Setting max_b_frames=2 for encoder: {}", codecName);
+		
+		// For software VideoToolbox, ensure proper B-frame configuration
+		if (codecName.find("videotoolbox") != std::string::npos) {
+			codecCtx->has_b_frames = 2;
+			codecCtx->delay = codecCtx->max_b_frames;
+		}
 	}
 	
 	// Set aspect ratio for libx264/libx265 - matching ftv_toffmpeg behavior
@@ -277,6 +289,9 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 #endif
 	}
 	
+	// Log actual B-frames setting before opening codec
+	utils::Logger::debug("Before avcodec_open2 - max_b_frames: {}", codecCtx->max_b_frames);
+	
 	// Open codec
 	ret = avcodec_open2(codecCtx, codec, nullptr);
 	if (ret < 0) {
@@ -328,12 +343,13 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 		throw std::runtime_error("Failed to allocate conversion frame buffer");
 	}
 	
-	utils::Logger::info("Encoder initialized: {}x{} @ {} fps, codec: {}, threads: {}, hardware: {}",
+	utils::Logger::info("Encoder initialized: {}x{} @ {} fps, codec: {}, threads: {}, hardware: {}, max_b_frames: {}",
 		config.width, config.height,
 		(double)config.frameRate.num / config.frameRate.den,
 		codecName,
 		codecCtx->thread_count == 0 ? "auto" : std::to_string(codecCtx->thread_count),
-		usingHardware ? "yes" : "no");
+		usingHardware ? "yes" : "no",
+		codecCtx->max_b_frames);
 }
 
 void FFmpegEncoder::cleanup() {
@@ -407,7 +423,8 @@ bool FFmpegEncoder::writeFrame(AVFrame* frame) {
 		frameToEncode = convertedFrame;
 	}
 	
-	// Set frame pts
+	// Set frame pts - use presentation order
+	// The encoder will handle DTS generation for B-frames
 	frameToEncode->pts = pts++;
 	
 	return encodeFrame(frameToEncode);
