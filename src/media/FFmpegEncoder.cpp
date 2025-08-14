@@ -181,7 +181,14 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 #endif
 	codecCtx->bit_rate = config.bitrate;
 	codecCtx->gop_size = 300; // 300 frames GOP - matching ftv_toffmpeg default
-	codecCtx->max_b_frames = 2;
+	
+	// VideoToolbox has issues with B-frames and PTS/DTS ordering
+	// Disable B-frames for VideoToolbox, use 2 for other codecs
+	if (codecName.find("videotoolbox") != std::string::npos) {
+		codecCtx->max_b_frames = 0; // No B-frames for VideoToolbox
+	} else {
+		codecCtx->max_b_frames = 2; // Default B-frames for other codecs
+	}
 	
 	// Set aspect ratio for libx264/libx265 - matching ftv_toffmpeg behavior
 	// Assume square pixels (1:1 sample aspect ratio) for typical HD video

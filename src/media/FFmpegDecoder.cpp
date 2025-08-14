@@ -395,10 +395,88 @@ bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
 	// If using hardware decoding, transfer the frame to software
 	if (success && usingHardware && hwFrame) {
 		if (HardwareAcceleration::isHardwareFrame(hwFrame)) {
-			int transferRet = HardwareAcceleration::transferHWFrameToSW(hwFrame, frame);
-			if (transferRet < 0) {
-				utils::Logger::error("Failed to transfer hardware frame to software");
+			// For VideoToolbox, we need to allocate a temporary frame with the correct format
+			// VideoToolbox may output frames in various formats like NV12, P010, etc.
+			AVFrame* tempFrame = av_frame_alloc();
+			if (!tempFrame) {
 				success = false;
+			} else {
+				// Set up the temporary frame format
+				if (hwFrame->hw_frames_ctx) {
+					AVHWFramesContext* hwFramesCtx = (AVHWFramesContext*)hwFrame->hw_frames_ctx->data;
+					tempFrame->format = hwFramesCtx->sw_format;
+				} else {
+					// Fallback to NV12 which is common for VideoToolbox
+					tempFrame->format = AV_PIX_FMT_NV12;
+				}
+				tempFrame->width = hwFrame->width;
+				tempFrame->height = hwFrame->height;
+				
+				// Allocate buffer for the temporary frame
+				int allocRet = av_frame_get_buffer(tempFrame, 32);
+				if (allocRet < 0) {
+					av_frame_free(&tempFrame);
+					success = false;
+				} else {
+					// Transfer from hardware to temporary frame
+					int transferRet = av_hwframe_transfer_data(tempFrame, hwFrame, 0);
+					if (transferRet < 0) {
+						char errbuf[AV_ERROR_MAX_STRING_SIZE];
+						av_strerror(transferRet, errbuf, sizeof(errbuf));
+						utils::Logger::error("Failed to transfer hardware frame to software: {} (hw format: {}, sw format: {})", 
+							errbuf, av_get_pix_fmt_name((AVPixelFormat)hwFrame->format), 
+							av_get_pix_fmt_name((AVPixelFormat)tempFrame->format));
+						av_frame_free(&tempFrame);
+						success = false;
+					} else {
+						// Now convert from tempFrame format to our desired format if needed
+						if (tempFrame->format != frame->format) {
+							// Need to convert pixel format
+							if (!swsCtx || 
+								lastSrcFormat != tempFrame->format ||
+								lastDstFormat != frame->format ||
+								lastWidth != tempFrame->width ||
+								lastHeight != tempFrame->height) {
+								
+								if (swsCtx) {
+									sws_freeContext(swsCtx);
+								}
+								
+								swsCtx = sws_getContext(
+									tempFrame->width, tempFrame->height, (AVPixelFormat)tempFrame->format,
+									frame->width, frame->height, (AVPixelFormat)frame->format,
+									SWS_BILINEAR, nullptr, nullptr, nullptr
+								);
+								
+								if (!swsCtx) {
+									utils::Logger::error("Failed to create swscale context for format conversion");
+									av_frame_free(&tempFrame);
+									success = false;
+								} else {
+									lastSrcFormat = tempFrame->format;
+									lastDstFormat = frame->format;
+									lastWidth = tempFrame->width;
+									lastHeight = tempFrame->height;
+								}
+							}
+							
+							if (swsCtx) {
+								sws_scale(swsCtx,
+									tempFrame->data, tempFrame->linesize, 0, tempFrame->height,
+									frame->data, frame->linesize
+								);
+								// Copy properties
+								av_frame_copy_props(frame, tempFrame);
+							}
+						} else {
+							// Same format, just copy
+							av_frame_copy(frame, tempFrame);
+							av_frame_copy_props(frame, tempFrame);
+						}
+						
+						av_frame_free(&tempFrame);
+					}
+				}
 			}
 		} else {
 			// Frame is already in software format (can happen with some decoders)

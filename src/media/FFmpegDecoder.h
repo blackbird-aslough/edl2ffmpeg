@@ -61,6 +61,12 @@ private:
 	AVBufferRef* hwDeviceCtx = nullptr;
 	bool usingHardware = false;
 	
+	// SwsContext for format conversion (hardware decoding)
+	int lastSrcFormat = -1;
+	int lastDstFormat = -1;
+	int lastWidth = 0;
+	int lastHeight = 0;
+	
 	int videoStreamIndex = -1;
 	int width = 0;
 	int height = 0;
