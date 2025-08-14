@@ -215,28 +215,40 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 		codecCtx->max_b_frames = 0;
 		utils::Logger::debug("Disabling B-frames for hardware VideoToolbox encoder to ensure PTS/DTS compatibility");
 	} else {
-		// Enable B-frames for software encoders and non-VideoToolbox hardware encoders
-		codecCtx->max_b_frames = 2;
-		utils::Logger::debug("Setting max_b_frames=2 for encoder: {}", codecName);
+		// Don't explicitly set max_b_frames - let FFmpeg use its defaults to match ftv_toffmpeg
+		// The reference encoder (ftv_toffmpeg) doesn't set this, allowing FFmpeg to choose
+		// codecCtx->max_b_frames = 2;  // Commented out to match reference behavior
+		utils::Logger::debug("Using FFmpeg default B-frame settings for encoder: {}", codecName);
 		
 		// For software VideoToolbox, ensure proper B-frame configuration
 		if (codecName.find("videotoolbox") != std::string::npos) {
-			codecCtx->has_b_frames = 2;
-			codecCtx->delay = codecCtx->max_b_frames;
+			// Still don't set these - let FFmpeg handle it
+			// codecCtx->has_b_frames = 2;
+			// codecCtx->delay = codecCtx->max_b_frames;
 		}
 	}
 	
 	// Set aspect ratio for libx264/libx265 - matching ftv_toffmpeg behavior
-	// Assume square pixels (1:1 sample aspect ratio) for typical HD video
-	codecCtx->sample_aspect_ratio = av_make_q(1, 1);
+	// ftv_toffmpeg sets -aspect width:height for these codecs
+	if (codecName == "libx264" || codecName == "libx265") {
+		// Set display aspect ratio (DAR) as width:height
+		// The sample aspect ratio (SAR) should be calculated from DAR and resolution
+		// DAR = SAR * width/height, so SAR = DAR * height/width
+		// For 1920x1080 with 16:9 DAR, SAR should be 1:1 (square pixels)
+		codecCtx->sample_aspect_ratio = av_make_q(1, 1);
+	} else {
+		// For other codecs, use default (unset) aspect ratio
+		codecCtx->sample_aspect_ratio = av_make_q(0, 1);
+	}
 	
 	// Set stream time base
 	videoStream->time_base = codecCtx->time_base;
 	
-	// Enable multi-threading for encoding
+	// Enable multi-threading for encoding - matching ftv_toffmpeg which uses -threads 0
 	// Use configured thread count or auto-detect
 	codecCtx->thread_count = config.threadCount; // 0 means auto-detect optimal thread count
-	codecCtx->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE; // Enable both frame and slice threading
+	// Don't set thread_type - let FFmpeg use its defaults to match ftv_toffmpeg
+	// codecCtx->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE; // Commented out to match reference
 	
 	// Set codec-specific options
 	if (codecName == "libx264" || codecName == "libx265") {
