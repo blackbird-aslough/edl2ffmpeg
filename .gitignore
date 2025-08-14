@@ -109,3 +109,22 @@ temp/
 result
 result-*
 .direnv/
+.envrc
+
+# Node modules
+node_modules/
+package-lock.json
+package.json
+
+# Backup and temporary files
+backup_local_files/
+.#*
+
+# Local test files
+test_*.json
+
+# Serena IDE
+.serena/
+
+# Local documentation  
+NIX_README.md
