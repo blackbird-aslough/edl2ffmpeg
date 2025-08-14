@@ -238,8 +238,18 @@ void FFmpegDecoder::setupDecoder() {
 	height = codecCtx->height;
 	pixelFormat = codecCtx->pix_fmt;
 	
+	// Initialize frame pool with software pixel format for hardware decoding
+	// Hardware frames will be transferred to software frames in this format
+	AVPixelFormat poolFormat = pixelFormat;
+	if (usingHardware && HardwareAcceleration::isHardwarePixelFormat(pixelFormat)) {
+		// Use YUV420P as the software format for frame pool
+		poolFormat = AV_PIX_FMT_YUV420P;
+		utils::Logger::debug("Hardware decoder using {} format, frame pool using software format {}", 
+			av_get_pix_fmt_name(pixelFormat), av_get_pix_fmt_name(poolFormat));
+	}
+	
 	// Initialize frame pool
-	framePool = utils::FrameBufferPool(width, height, pixelFormat);
+	framePool = utils::FrameBufferPool(width, height, poolFormat);
 	
 	utils::Logger::info("Decoder initialized: {}x{} @ {} fps, threads: {}, hardware: {}",
 		width, height, (double)frameRate.num / frameRate.den,

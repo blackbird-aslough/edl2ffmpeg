@@ -197,6 +197,19 @@ bool HardwareAcceleration::isHardwareFrame(const AVFrame* frame) {
 	}
 }
 
+bool HardwareAcceleration::isHardwarePixelFormat(AVPixelFormat format) {
+	switch (format) {
+	case AV_PIX_FMT_CUDA:
+	case AV_PIX_FMT_VAAPI:
+	case AV_PIX_FMT_VIDEOTOOLBOX:
+	case AV_PIX_FMT_QSV:
+	case AV_PIX_FMT_VULKAN:
+		return true;
+	default:
+		return false;
+	}
+}
+
 int HardwareAcceleration::transferHWFrameToSW(AVFrame* hwFrame, AVFrame* swFrame) {
 	if (!hwFrame || !swFrame) {
 		return AVERROR(EINVAL);

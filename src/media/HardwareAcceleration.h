@@ -98,6 +98,13 @@ public:
 	static bool isHardwareFrame(const AVFrame* frame);
 	
 	/**
+	 * Check if a pixel format is a hardware pixel format
+	 * @param format Pixel format to check
+	 * @return true if format is a hardware format
+	 */
+	static bool isHardwarePixelFormat(AVPixelFormat format);
+	
+	/**
 	 * Transfer hardware frame to system memory
 	 * @param hwFrame Hardware frame
 	 * @param swFrame Software frame to receive the data
