@@ -39,6 +39,7 @@ EDL File → Parser → Instruction Generator → Frame Loop → Output Video
 3. **FFmpeg Wrappers** (`src/media/`)
    - `FFmpegDecoder`: Frame-accurate seeking and decoding
    - `FFmpegEncoder`: Configurable encoding with multiple codecs
+   - `HardwareAcceleration`: Auto-detection and management of hardware encoders/decoders
    - RAII pattern for resource management
 
 4. **Frame Compositor** (`src/compositor/FrameCompositor`)
@@ -154,6 +155,13 @@ ffmpeg -f lavfi -i testsrc=duration=10:size=1920x1080:rate=30 test_video.mp4
 
 # Test different codec
 ./edl2ffmpeg input.json output.mp4 --codec libx265 --crf 28
+
+# Test with hardware acceleration
+./edl2ffmpeg input.json output.mp4 --hw-accel auto  # Auto-detect (default)
+./edl2ffmpeg input.json output.mp4 --hw-accel cuda  # Force NVIDIA CUDA
+./edl2ffmpeg input.json output.mp4 --hw-accel vaapi # Force VAAPI (Linux)
+./edl2ffmpeg input.json output.mp4 --hw-accel videotoolbox # Force VideoToolbox (macOS)
+./edl2ffmpeg input.json output.mp4 --hw-accel none  # Force software
 ```
 
 ## Performance Considerations
@@ -165,6 +173,9 @@ ffmpeg -f lavfi -i testsrc=duration=10:size=1920x1080:rate=30 test_video.mp4
 - 32-byte memory alignment for SIMD readiness
 - Smart seeking logic: only seeks when going backward or jumping >60 frames ahead
 - Optimized for sequential frame access (minimal seeking overhead)
+- Hardware acceleration auto-detection for encoding/decoding
+- Zero-copy GPU passthrough for frames without effects
+- Platform-specific encoder settings matching reference encoder (ftv_toffmpeg)
 
 ### Profiling
 ```bash
@@ -189,7 +200,7 @@ gprof edl2ffmpeg gmon.out > profile.txt
 - [ ] SIMD optimizations for effects (SSE4.2, AVX2, AVX-512)
 - [ ] Geometric transforms (pan, zoom, rotation)
 - [ ] Multi-threaded pipeline (decode/process/encode)
-- [ ] Hardware decoder support (VAAPI, NVDEC, VideoToolbox)
+- [x] Hardware encoder/decoder support (VAAPI, NVDEC, VideoToolbox) - IMPLEMENTED
 
 ### Phase 3 Features (Future)
 - [ ] GPU acceleration (OpenCL, CUDA, Vulkan compute)
@@ -246,11 +257,22 @@ ffmpeg -codecs | grep libx264
 **Solution**: Ensure EDL frame rate matches source media frame rate. Frame rate conversion (e.g., 25fps to 30fps) can cause repeated seeks and decoder state issues.
 
 ### Issue: Build fails with FFmpeg errors
-**Solution**: Check FFmpeg version (4.4+ required) and development headers are installed:
+**Solution**: Check FFmpeg version and development headers are installed:
 ```bash
 pkg-config --modversion libavcodec
 sudo apt-get install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
 ```
+**Note**: The codebase supports FFmpeg 2.x, 3.x, 4.x, and 5.x with compatibility macros.
+
+### Issue: Platform differences in output (Linux vs macOS)
+**Solution**: This is intentional due to B-frame handling differences. macOS VideoToolbox has B-frames disabled to avoid PTS/DTS ordering issues. See `FFMPEG_PLATFORM_DIFFERENCES.md` for details.
+
+### Issue: Hardware acceleration not working
+**Solution**: Check hardware support with:
+```bash
+./edl2ffmpeg input.json output.mp4 -v  # Verbose mode shows HW detection
+```
+To force software encoding: `--hw-accel none`
 
 ## Development Workflow
 

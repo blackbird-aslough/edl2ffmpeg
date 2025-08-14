@@ -9,16 +9,16 @@ edl2ffmpeg supports hardware-accelerated video encoding and decoding on Linux (N
 ### Basic GPU Usage
 
 ```bash
-# Auto-detect and use best available GPU
-./edl2ffmpeg input.json output.mp4 --hw-accel auto --hw-encode
+# Auto-detect and use best available hardware acceleration (default)
+./edl2ffmpeg input.json output.mp4
 
-# Use specific GPU acceleration
-./edl2ffmpeg input.json output.mp4 --hw-accel nvenc --hw-encode   # NVIDIA
-./edl2ffmpeg input.json output.mp4 --hw-accel vaapi --hw-encode   # Intel/AMD
-./edl2ffmpeg input.json output.mp4 --hw-accel videotoolbox --hw-encode  # macOS
+# Force specific hardware acceleration
+./edl2ffmpeg input.json output.mp4 --hw-accel cuda      # NVIDIA CUDA
+./edl2ffmpeg input.json output.mp4 --hw-accel vaapi     # Intel/AMD VAAPI
+./edl2ffmpeg input.json output.mp4 --hw-accel videotoolbox  # macOS VideoToolbox
 
-# Enable both hardware encoding and decoding
-./edl2ffmpeg input.json output.mp4 --hw-accel auto --hw-encode --hw-decode
+# Disable hardware acceleration
+./edl2ffmpeg input.json output.mp4 --hw-accel none
 ```
 
 ## Command-Line Options
@@ -26,17 +26,13 @@ edl2ffmpeg supports hardware-accelerated video encoding and decoding on Linux (N
 - `--hw-accel <type>`: Hardware acceleration type
   - `auto`: Auto-detect best available (default)
   - `none`: Disable hardware acceleration
-  - `nvenc`: NVIDIA NVENC/NVDEC
+  - `cuda`: NVIDIA CUDA/NVENC
   - `vaapi`: Intel/AMD VAAPI
   - `videotoolbox`: macOS VideoToolbox
 
-- `--hw-device <index>`: GPU device index for multi-GPU systems (default: 0)
-
-- `--hw-encode`: Enable hardware encoding
-
-- `--hw-decode`: Enable hardware decoding
-
 - `-v, --verbose`: Show which hardware acceleration is being used
+
+**Note**: Hardware acceleration is automatically detected and used when available. The system will automatically fall back to software encoding if hardware acceleration fails.
 
 ## Performance Benchmarks
 
@@ -75,8 +71,8 @@ Requirements:
 # Check if NVIDIA GPU is available
 nvidia-smi
 
-# Use NVENC
-./edl2ffmpeg input.json output.mp4 --hw-accel nvenc --hw-encode
+# Use CUDA/NVENC
+./edl2ffmpeg input.json output.mp4 --hw-accel cuda
 ```
 
 ### Linux - Intel/AMD
@@ -93,7 +89,7 @@ sudo apt-get install vainfo intel-media-va-driver
 vainfo
 
 # Use VAAPI
-./edl2ffmpeg input.json output.mp4 --hw-accel vaapi --hw-encode
+./edl2ffmpeg input.json output.mp4 --hw-accel vaapi
 ```
 
 ### macOS
@@ -104,7 +100,7 @@ Requirements:
 
 ```bash
 # VideoToolbox is built-in on macOS
-./edl2ffmpeg input.json output.mp4 --hw-accel videotoolbox --hw-encode
+./edl2ffmpeg input.json output.mp4 --hw-accel videotoolbox
 ```
 
 ## Troubleshooting
@@ -113,17 +109,12 @@ Requirements:
 
 ```bash
 # Run with verbose mode to see detection
-./edl2ffmpeg input.json output.mp4 --hw-accel auto --hw-encode -v
+./edl2ffmpeg input.json output.mp4 -v
 ```
 
 ### Decoder errors
 
-Some formats may not support hardware decoding. Try encoding-only:
-
-```bash
-# Use hardware encoding only
-./edl2ffmpeg input.json output.mp4 --hw-accel auto --hw-encode
-```
+Some formats may not support hardware decoding. The system will automatically fall back to software decoding when necessary.
 
 ### Performance not improved
 
@@ -134,9 +125,11 @@ Ensure:
 
 ### Multi-GPU systems
 
+The system will automatically select the first available GPU. For manual selection in multi-GPU systems, use environment variables:
+
 ```bash
-# Use second GPU (index 1)
-./edl2ffmpeg input.json output.mp4 --hw-accel nvenc --hw-device 1 --hw-encode
+# NVIDIA: Use second GPU
+CUDA_VISIBLE_DEVICES=1 ./edl2ffmpeg input.json output.mp4 --hw-accel cuda
 ```
 
 ## Building with GPU Support
@@ -187,6 +180,18 @@ cmake .. -DENABLE_GPU=ON
 4. **Quality settings**: GPU encoders may have different quality characteristics than CPU encoders
 
 5. **Power efficiency**: GPU encoding typically uses less power than CPU encoding
+
+## Implementation Details
+
+### Zero-Copy GPU Passthrough
+
+When using hardware acceleration and no effects are applied to a frame, edl2ffmpeg implements zero-copy passthrough, keeping frames in GPU memory throughout the pipeline. This provides maximum performance for simple cuts and concatenations.
+
+### Platform-Specific Optimizations
+
+**macOS VideoToolbox**: B-frames are automatically disabled due to PTS/DTS ordering issues with VideoToolbox. This ensures reliable encoding at the cost of slightly larger file sizes.
+
+**NVIDIA CUDA**: Supports both NVENC for encoding and NVDEC for decoding with automatic fallback to software when needed.
 
 ## Future Enhancements
 

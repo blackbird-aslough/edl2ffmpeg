@@ -13,6 +13,7 @@ edl2ffmpeg is an open-source tool that renders EDL files to compressed video out
 - **Memory Efficient**: Frame buffer pooling to minimize allocations
 - **Extensible Effects System**: Modular effect architecture ready for SIMD/GPU acceleration
 - **Multi-format Support**: Handles common codecs (H.264, H.265, ProRes)
+- **Hardware Acceleration**: Auto-detection and support for NVENC, VAAPI, VideoToolbox
 - **Real-time Progress**: Visual progress bar with FPS and ETA reporting
 
 ## Building
@@ -21,7 +22,7 @@ edl2ffmpeg is an open-source tool that renders EDL files to compressed video out
 
 - C++20 compatible compiler (GCC 10+, Clang 12+, MSVC 2019+)
 - CMake 3.16+
-- FFmpeg 4.4+ development libraries
+- FFmpeg development libraries (supports 2.x, 3.x, 4.x, 5.x)
 - nlohmann/json (automatically fetched if not found)
 
 ### Build Instructions
@@ -73,6 +74,7 @@ Options:
   -b, --bitrate <bitrate>  Video bitrate (default: 4000000)
   -p, --preset <preset>    Encoder preset (default: medium)
   --crf <value>            Constant Rate Factor (default: 23)
+  --hw-accel <type>        Hardware acceleration (auto/cuda/vaapi/videotoolbox/none)
   -v, --verbose            Enable verbose logging
   -q, --quiet              Suppress all non-error output
   -h, --help               Show this help message
@@ -81,6 +83,8 @@ Examples:
   edl2ffmpeg input.json output.mp4
   edl2ffmpeg input.json output.mp4 --codec libx265 --crf 28
   edl2ffmpeg input.json output.mp4 -b 8000000 -p fast
+  edl2ffmpeg input.json output.mp4 --hw-accel cuda    # Use NVIDIA hardware encoding
+  edl2ffmpeg input.json output.mp4 --hw-accel none    # Force software encoding
 ```
 
 ## EDL Format
@@ -169,23 +173,27 @@ The system follows a pipeline architecture:
 - `InstructionGenerator`: Generates compositor instructions with lazy evaluation
 - `FFmpegDecoder`: Wraps FFmpeg decoding with frame-accurate seeking
 - `FFmpegEncoder`: Wraps FFmpeg encoding with configurable codecs
+- `HardwareAcceleration`: Auto-detects and manages hardware encoders/decoders
 - `FrameCompositor`: Processes frames according to instructions
 - `FrameBufferPool`: Manages frame memory with pooling
 
 ## Performance
 
-### Current Performance (Phase 1)
+### Current Performance
 
-- 1080p30 video: 60+ fps processing (2x realtime)
+- 1080p30 video: 60+ fps processing (2x realtime) on CPU
+- Hardware encoding: 200+ fps with NVENC/VideoToolbox
+- Zero-copy GPU passthrough for frames without effects
 - Memory usage: Under 500MB for typical operations
 - Support for H.264, H.265, ProRes codecs
 
 ### Optimization Roadmap
 
 - SIMD optimizations for effects (SSE4.2, AVX2, AVX-512)
-- GPU acceleration (OpenCL, CUDA, Vulkan)
+- GPU acceleration for effects (OpenCL, CUDA, Vulkan)
 - Multi-threaded pipeline architecture
-- Zero-copy frame processing
+- [x] Hardware encoder/decoder support (IMPLEMENTED)
+- [x] Zero-copy GPU passthrough for unmodified frames (IMPLEMENTED)
 
 ## Development
 
