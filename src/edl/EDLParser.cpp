@@ -40,8 +40,8 @@ EDL EDLParser::parseJSON(const nlohmann::json& j) {
 Source EDLParser::parseSource(const nlohmann::json& j) {
 	Source source;
 	
-	if (j.contains("mediaId")) {
-		source.mediaId = j["mediaId"];
+	if (j.contains("uri")) {
+		source.uri = j["uri"];
 	}
 	if (j.contains("trackId")) {
 		source.trackId = j["trackId"];

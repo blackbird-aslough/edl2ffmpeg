@@ -44,7 +44,7 @@ struct CompositorInstruction {
 	
 	// Source information
 	int trackNumber = 0;
-	std::string mediaId;
+	std::string uri;
 	int64_t sourceFrameNumber = 0;
 	
 	// Transform parameters

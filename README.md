@@ -95,7 +95,7 @@ The EDL file should be in JSON format with the following structure:
 	"clips": [
 		{
 			"source": {
-				"mediaId": "video.mp4",
+				"uri": "video.mp4",
 				"trackId": "V1",
 				"in": 0,
 				"out": 10
@@ -134,7 +134,7 @@ The EDL file should be in JSON format with the following structure:
 ### Clip Properties
 
 - `source`: Source media information
-  - `mediaId`: Path to the media file
+  - `uri`: Path to the media file (publishing EDL format)
   - `trackId`: Track identifier (e.g., "V1" for video track 1)
   - `in`: Start time in source (seconds)
   - `out`: End time in source (seconds)

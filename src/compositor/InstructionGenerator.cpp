@@ -76,7 +76,7 @@ CompositorInstruction InstructionGenerator::createInstruction(const edl::Clip& c
 	CompositorInstruction instruction;
 	instruction.type = CompositorInstruction::DrawFrame;
 	instruction.trackNumber = clip.track.number;
-	instruction.mediaId = clip.source.mediaId;
+	instruction.uri = clip.source.uri;
 	
 	// Calculate source frame number
 	instruction.sourceFrameNumber = getSourceFrameNumber(clip, frameNumber);

@@ -5,7 +5,7 @@
 	"clips": [
 		{
 			"source": {
-				"mediaId": "test_video.mp4",
+				"uri": "test_video.mp4",
 				"trackId": "V1",
 				"in": 0,
 				"out": 10

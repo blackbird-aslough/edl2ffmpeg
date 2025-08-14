@@ -5,7 +5,7 @@
 	"clips": [
 		{
 			"source": {
-				"mediaId": "Test_Live_1906_High.mxf",
+				"uri": "Test_Live_1906_High.mxf",
 				"trackId": "V1",
 				"in": 0,
 				"out": 5

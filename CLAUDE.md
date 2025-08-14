@@ -11,6 +11,7 @@ edl2ffmpeg is a high-performance EDL (Edit Decision List) renderer that processe
 - Direct FFmpeg library integration (no pipes/subprocesses)
 - Designed for open-sourcing with clean, extensible architecture
 - Performance-focused with SIMD/GPU optimization readiness
+- Uses publishing EDL format with 'uri' field for media references
 
 ## Architecture
 

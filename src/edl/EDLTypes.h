@@ -19,7 +19,7 @@ struct Transition {
 };
 
 struct Source {
-	std::string mediaId;
+	std::string uri;       // URI/path to the media file (publishing EDL format)
 	std::string trackId;   // "V1", "A1", etc.
 	double in = 0.0;       // Source timecode in seconds
 	double out = 0.0;      // Source timecode in seconds

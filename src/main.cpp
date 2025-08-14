@@ -80,26 +80,26 @@ Options parseCommandLine(int argc, char* argv[]) {
 	return opts;
 }
 
-std::string getMediaPath(const std::string& mediaId, const std::string& edlPath) {
-	// First, check if mediaId is already a full path
-	if (fs::exists(mediaId)) {
-		return mediaId;
+std::string getMediaPath(const std::string& uri, const std::string& edlPath) {
+	// First, check if uri is already a full path
+	if (fs::exists(uri)) {
+		return uri;
 	}
 	
 	// Try relative to EDL file directory
 	fs::path edlDir = fs::path(edlPath).parent_path();
-	fs::path mediaPath = edlDir / mediaId;
+	fs::path mediaPath = edlDir / uri;
 	if (fs::exists(mediaPath)) {
 		return mediaPath.string();
 	}
 	
 	// Try in current directory
-	if (fs::exists(fs::path(mediaId))) {
-		return mediaId;
+	if (fs::exists(fs::path(uri))) {
+		return uri;
 	}
 	
 	// Return as-is and let FFmpeg handle it
-	return mediaId;
+	return uri;
 }
 
 void printProgress(int current, int total, double fps, double elapsed) {
@@ -152,13 +152,13 @@ int main(int argc, char* argv[]) {
 				continue;
 			}
 			
-			const std::string& mediaId = clip.source.mediaId;
-			if (decoders.find(mediaId) == decoders.end()) {
-				std::string mediaPath = getMediaPath(mediaId, opts.edlFile);
-				utils::Logger::info("Loading media: {} -> {}", mediaId, mediaPath);
+			const std::string& uri = clip.source.uri;
+			if (decoders.find(uri) == decoders.end()) {
+				std::string mediaPath = getMediaPath(uri, opts.edlFile);
+				utils::Logger::info("Loading media: {} -> {}", uri, mediaPath);
 				
 				try {
-					decoders[mediaId] = std::make_unique<media::FFmpegDecoder>(mediaPath);
+					decoders[uri] = std::make_unique<media::FFmpegDecoder>(mediaPath);
 				} catch (const std::exception& e) {
 					utils::Logger::error("Failed to load media {}: {}", mediaPath, e.what());
 					throw;
@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
 			
 			if (instruction.type == compositor::CompositorInstruction::DrawFrame) {
 				// Get the decoder for this media
-				auto& decoder = decoders[instruction.mediaId];
+				auto& decoder = decoders[instruction.uri];
 				if (decoder) {
 					// Get the source frame
 					auto inputFrame = decoder->getFrame(instruction.sourceFrameNumber);
@@ -206,7 +206,7 @@ int main(int argc, char* argv[]) {
 					// Process through compositor
 					outputFrame = compositor.processFrame(inputFrame, instruction);
 				} else {
-					utils::Logger::warn("Decoder not found for media: {}", instruction.mediaId);
+					utils::Logger::warn("Decoder not found for media: {}", instruction.uri);
 					outputFrame = compositor.generateColorFrame(0, 0, 0);
 				}
 			} else if (instruction.type == compositor::CompositorInstruction::GenerateColor) {
