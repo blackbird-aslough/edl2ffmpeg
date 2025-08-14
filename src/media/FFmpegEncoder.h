@@ -9,12 +9,12 @@ class FFmpegEncoder {
 public:
 	struct Config {
 		std::string codec = "libx264";
-		int bitrate = 4000000;  // 4Mbps
+		int bitrate = 446464;  // 436Ki (436 * 1024) - matching ftv_toffmpeg default
 		AVPixelFormat pixelFormat = AV_PIX_FMT_YUV420P;
 		int width = 1920;
 		int height = 1080;
 		AVRational frameRate = {30, 1};
-		std::string preset = "medium";
+		std::string preset = "faster";  // matching ftv_toffmpeg default
 		int crf = 23;  // Constant Rate Factor for x264/x265
 		int threadCount = 0;  // 0 = auto-detect, >0 = specific count
 	};

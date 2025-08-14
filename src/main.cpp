@@ -18,8 +18,8 @@ void printUsage(const char* programName) {
 	std::cout << "Usage: " << programName << " <edl_file> <output_file> [options]\n";
 	std::cout << "\nOptions:\n";
 	std::cout << "  -c, --codec <codec>      Video codec (default: libx264)\n";
-	std::cout << "  -b, --bitrate <bitrate>  Video bitrate (default: 4000000)\n";
-	std::cout << "  -p, --preset <preset>    Encoder preset (default: medium)\n";
+	std::cout << "  -b, --bitrate <bitrate>  Video bitrate (default: 446464 / 436Ki)\n";
+	std::cout << "  -p, --preset <preset>    Encoder preset (default: faster)\n";
 	std::cout << "  --crf <value>            Constant Rate Factor (default: 23)\n";
 	std::cout << "  -v, --verbose            Enable verbose logging\n";
 	std::cout << "  -q, --quiet              Suppress all non-error output\n";
@@ -34,8 +34,8 @@ struct Options {
 	std::string edlFile;
 	std::string outputFile;
 	std::string codec = "libx264";
-	int bitrate = 4000000;
-	std::string preset = "medium";
+	int bitrate = 446464;  // 436Ki (436 * 1024) - matching ftv_toffmpeg default
+	std::string preset = "faster";  // matching ftv_toffmpeg default
 	int crf = 23;
 	bool verbose = false;
 	bool quiet = false;
