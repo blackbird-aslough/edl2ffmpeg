@@ -168,7 +168,15 @@ void FFmpegDecoder::setupDecoder() {
 			
 			// Create hardware device context
 			if (usingHardware) {
+				// Suppress FFmpeg error messages during hardware setup
+				int oldLogLevel = av_log_get_level();
+				av_log_set_level(AV_LOG_ERROR);
+				
 				hwDeviceCtx = HardwareAcceleration::createHWDeviceContext(hwType, decoderConfig.hwConfig.deviceIndex);
+				
+				// Restore log level
+				av_log_set_level(oldLogLevel);
+				
 				if (!hwDeviceCtx) {
 					utils::Logger::warn("Failed to create hardware device context, falling back to software");
 					codec = nullptr;

@@ -107,7 +107,15 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 					utils::Logger::info("Using hardware encoder: {}", hwCodecName);
 					
 					// Create hardware device context
+					// Suppress FFmpeg error messages during hardware setup
+					int oldLogLevel = av_log_get_level();
+					av_log_set_level(AV_LOG_ERROR);
+					
 					hwDeviceCtx = HardwareAcceleration::createHWDeviceContext(hwType, config.hwConfig.deviceIndex);
+					
+					// Restore log level
+					av_log_set_level(oldLogLevel);
+					
 					if (!hwDeviceCtx) {
 						utils::Logger::warn("Failed to create hardware device context, falling back to software");
 						codec = nullptr;

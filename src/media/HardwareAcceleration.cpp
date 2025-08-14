@@ -280,6 +280,10 @@ std::vector<HWDevice> HardwareAcceleration::detectNVENC() {
 	std::vector<HWDevice> devices;
 	
 #ifdef HAVE_NVENC
+	// Suppress FFmpeg error messages during detection
+	int oldLogLevel = av_log_get_level();
+	av_log_set_level(AV_LOG_QUIET);
+	
 	// Try to create CUDA contexts for each GPU
 	for (int i = 0; i < 8; i++) { // Check up to 8 GPUs
 		AVBufferRef* testCtx = nullptr;
@@ -297,6 +301,9 @@ std::vector<HWDevice> HardwareAcceleration::detectNVENC() {
 			break; // No more GPUs
 		}
 	}
+	
+	// Restore original log level
+	av_log_set_level(oldLogLevel);
 #endif
 	
 	return devices;
@@ -306,6 +313,10 @@ std::vector<HWDevice> HardwareAcceleration::detectVAAPI() {
 	std::vector<HWDevice> devices;
 	
 #ifdef HAVE_VAAPI
+	// Suppress FFmpeg error messages during detection
+	int oldLogLevel = av_log_get_level();
+	av_log_set_level(AV_LOG_QUIET);
+	
 	// Check common VAAPI device paths
 	std::vector<std::string> devicePaths = {
 		"/dev/dri/renderD128",
@@ -332,6 +343,9 @@ std::vector<HWDevice> HardwareAcceleration::detectVAAPI() {
 			}
 		}
 	}
+	
+	// Restore original log level
+	av_log_set_level(oldLogLevel);
 #endif
 	
 	return devices;
