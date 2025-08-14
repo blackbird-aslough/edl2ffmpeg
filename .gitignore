@@ -104,3 +104,8 @@ logs/
 *.temp
 tmp/
 temp/
+
+# Nix
+result
+result-*
+.direnv/
