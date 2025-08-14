@@ -134,10 +134,13 @@ void printProgress(int current, int total, double fps, double /*elapsed*/) {
 	int barWidth = 50;
 	int pos = static_cast<int>(barWidth * current / total);
 	
+	// Ensure pos doesn't exceed barWidth - 1
+	if (pos >= barWidth) pos = barWidth - 1;
+	
 	std::cout << "\r[";
 	for (int i = 0; i < barWidth; ++i) {
 		if (i < pos) std::cout << "=";
-		else if (i == pos) std::cout << ">";
+		else if (i == pos && current < total) std::cout << ">";
 		else std::cout << " ";
 	}
 	
