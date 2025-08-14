@@ -24,7 +24,7 @@ void testSimpleEDL() {
 		assert(edl.clips.size() == 1);
 		
 		const auto& clip = edl.clips[0];
-		assert(clip.source.mediaId == "test_video.mp4");
+		assert(clip.source.uri == "test_video.mp4");
 		assert(clip.source.trackId == "V1");
 		assert(clip.source.in == 0);
 		assert(clip.source.out == 10);
@@ -59,13 +59,13 @@ void testComplexEDL() {
 		
 		// Test first clip with fades
 		const auto& clip1 = edl.clips[0];
-		assert(clip1.source.mediaId == "clip1.mp4");
+		assert(clip1.source.uri == "clip1.mp4");
 		assert(clip1.topFade == 1.0f);
 		assert(clip1.tailFade == 0.5f);
 		
 		// Test second clip with motion and transition
 		const auto& clip2 = edl.clips[1];
-		assert(clip2.source.mediaId == "clip2.mp4");
+		assert(clip2.source.uri == "clip2.mp4");
 		assert(clip2.motion.panX == 0.1f);
 		assert(clip2.motion.panY == -0.1f);
 		assert(clip2.motion.zoomX == 1.2f);
@@ -76,7 +76,7 @@ void testComplexEDL() {
 		
 		// Test third clip
 		const auto& clip3 = edl.clips[2];
-		assert(clip3.source.mediaId == "clip3.mp4");
+		assert(clip3.source.uri == "clip3.mp4");
 		assert(clip3.tailFade == 2.0f);
 		
 		std::cout << "✓ Complex EDL test passed" << std::endl;
@@ -97,7 +97,7 @@ void testInlineJSON() {
 		{"clips", nlohmann::json::array({
 			{
 				{"source", {
-					{"mediaId", "test.mp4"},
+					{"uri", "test.mp4"},
 					{"trackId", "V1"},
 					{"in", 5.5},
 					{"out", 15.5}
