@@ -183,8 +183,15 @@ bool FFmpegDecoder::seekToFrame(int64_t frameNumber) {
 		return false;
 	}
 	
-	// If we're already at or past this frame, we might need to seek backwards
-	if (currentFrameNumber >= frameNumber) {
+	// If we're already at the exact frame, no need to seek
+	if (currentFrameNumber == frameNumber) {
+		return true;
+	}
+	
+	// Check if we need to seek backward or if we're too far ahead
+	// Only seek if we need to go backward or if we're more than 60 frames ahead
+	// (seeking forward through 60+ frames is slower than seeking)
+	if (currentFrameNumber > frameNumber || currentFrameNumber < frameNumber - 60) {
 		// Seek to a keyframe before the target
 		int64_t targetPts = frameNumberToPts(frameNumber);
 		int ret = av_seek_frame(formatCtx, videoStreamIndex, targetPts,
@@ -195,7 +202,13 @@ bool FFmpegDecoder::seekToFrame(int64_t frameNumber) {
 			return false;
 		}
 		
+		// Flush codec buffers to clear decoder state
 		avcodec_flush_buffers(codecCtx);
+		
+		// Clear any cached packets
+		av_packet_unref(packet);
+		
+		// Reset frame position
 		currentFrameNumber = -1;
 	}
 	

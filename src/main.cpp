@@ -102,7 +102,7 @@ std::string getMediaPath(const std::string& uri, const std::string& edlPath) {
 	return uri;
 }
 
-void printProgress(int current, int total, double fps, double elapsed) {
+void printProgress(int current, int total, double fps, double /*elapsed*/) {
 	double progress = (double)current / total * 100.0;
 	int barWidth = 50;
 	int pos = static_cast<int>(barWidth * current / total);

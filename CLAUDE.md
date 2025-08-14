@@ -163,6 +163,8 @@ ffmpeg -f lavfi -i testsrc=duration=10:size=1920x1080:rate=30 test_video.mp4
 - Lazy instruction generation minimizes memory usage
 - Direct FFmpeg library calls eliminate pipe overhead
 - 32-byte memory alignment for SIMD readiness
+- Smart seeking logic: only seeks when going backward or jumping >60 frames ahead
+- Optimized for sequential frame access (minimal seeking overhead)
 
 ### Profiling
 ```bash
@@ -239,6 +241,9 @@ ffmpeg -codecs | grep libx264
 
 ### Issue: Seeking produces wrong frames
 **Solution**: This is often due to variable frame rate media. Ensure consistent frame rate in source media.
+
+### Issue: Decoder errors when processing EDL
+**Solution**: Ensure EDL frame rate matches source media frame rate. Frame rate conversion (e.g., 25fps to 30fps) can cause repeated seeks and decoder state issues.
 
 ### Issue: Build fails with FFmpeg errors
 **Solution**: Check FFmpeg version (4.4+ required) and development headers are installed:

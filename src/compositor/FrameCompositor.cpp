@@ -260,8 +260,8 @@ void FrameCompositor::applyContrast(AVFrame* frame, float strength) {
 	}
 }
 
-void FrameCompositor::applyTransform(AVFrame* frame,
-	const CompositorInstruction& instruction) {
+void FrameCompositor::applyTransform(AVFrame* /*frame*/,
+	const CompositorInstruction& /*instruction*/) {
 	// TODO: Implement geometric transformations
 	// This would involve:
 	// 1. Creating transformation matrix from pan/zoom/rotation
