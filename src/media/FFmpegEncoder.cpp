@@ -117,6 +117,10 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	codecCtx->gop_size = 300; // 300 frames GOP - matching ftv_toffmpeg default
 	codecCtx->max_b_frames = 2;
 	
+	// Set aspect ratio for libx264/libx265 - matching ftv_toffmpeg behavior
+	// Assume square pixels (1:1 sample aspect ratio) for typical HD video
+	codecCtx->sample_aspect_ratio = av_make_q(1, 1);
+	
 	// Set stream time base
 	videoStream->time_base = codecCtx->time_base;
 	
@@ -128,9 +132,17 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	// Set codec-specific options
 	if (config.codec == "libx264" || config.codec == "libx265") {
 		av_opt_set(codecCtx->priv_data, "preset", config.preset.c_str(), 0);
-		av_opt_set_int(codecCtx->priv_data, "crf", config.crf, 0);
-		// Set bitrate tolerance (-bt option in ftv_toffmpeg)
-		codecCtx->bit_rate_tolerance = config.bitrate;
+		
+		// Use CRF mode only if explicitly requested (crf >= 0 and bitrate <= 0)
+		// Otherwise use bitrate mode to match ftv_toffmpeg behavior
+		if (config.crf >= 0 && config.bitrate <= 0) {
+			// CRF mode - constant quality
+			av_opt_set_int(codecCtx->priv_data, "crf", config.crf, 0);
+			codecCtx->bit_rate = 0; // Disable bitrate when using CRF
+		} else {
+			// Bitrate mode - set bitrate tolerance (-bt option in ftv_toffmpeg)
+			codecCtx->bit_rate_tolerance = config.bitrate;
+		}
 	}
 	
 	// Some formats want stream headers to be separate

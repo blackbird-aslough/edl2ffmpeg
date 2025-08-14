@@ -25,7 +25,7 @@ void printUsage(const char* programName) {
 	std::cout << "  -c, --codec <codec>      Video codec (default: libx264)\n";
 	std::cout << "  -b, --bitrate <bitrate>  Video bitrate (default: 446464 / 436Ki)\n";
 	std::cout << "  -p, --preset <preset>    Encoder preset (default: faster)\n";
-	std::cout << "  --crf <value>            Constant Rate Factor (default: 23)\n";
+	std::cout << "  --crf <value>            Use Constant Rate Factor mode (disables bitrate)\n";
 	std::cout << "  -v, --verbose            Enable verbose logging\n";
 	std::cout << "  -q, --quiet              Suppress all non-error output\n";
 	std::cout << "  -h, --help               Show this help message\n";
@@ -75,6 +75,7 @@ Options parseCommandLine(int argc, char* argv[]) {
 			opts.preset = argv[++i];
 		} else if (arg == "--crf" && i + 1 < argc) {
 			opts.crf = std::stoi(argv[++i]);
+			opts.bitrate = 0; // Enable CRF mode by setting bitrate to 0
 		} else {
 			std::cerr << "Unknown option: " << arg << "\n";
 			printUsage(argv[0]);
