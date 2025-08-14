@@ -160,15 +160,21 @@ void FrameBufferPool::returnFrame(AVFrame* frame) {
 		// Just reset the essential metadata for reuse
 		frame->pts = 0;
 		frame->pkt_dts = 0;
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58, 134, 100)
 		frame->duration = 0;
+#else
+		frame->pkt_duration = 0;
+#endif
 		frame->flags = 0;
 		frame->pict_type = AV_PICTURE_TYPE_NONE;
 		frame->sample_aspect_ratio.num = 0;
 		frame->sample_aspect_ratio.den = 1;
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(58, 134, 100)
 		frame->crop_top = 0;
 		frame->crop_bottom = 0;
 		frame->crop_left = 0;
 		frame->crop_right = 0;
+#endif
 		
 		// Return to pool
 		availableFrames.push(frame);

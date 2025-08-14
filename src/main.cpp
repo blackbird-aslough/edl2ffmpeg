@@ -5,6 +5,11 @@
 #include "media/FFmpegEncoder.h"
 #include "utils/Logger.h"
 
+extern "C" {
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+}
+
 #include <iostream>
 #include <unordered_map>
 #include <memory>
@@ -125,6 +130,11 @@ void printProgress(int current, int total, double fps, double /*elapsed*/) {
 
 int main(int argc, char* argv[]) {
 	try {
+		// Initialize FFmpeg (required for older versions)
+#if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 9, 100)
+		av_register_all();
+#endif
+		
 		// Parse command line
 		Options opts = parseCommandLine(argc, argv);
 		

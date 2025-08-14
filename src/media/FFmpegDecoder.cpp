@@ -1,4 +1,5 @@
 #include "media/FFmpegDecoder.h"
+#include "media/FFmpegCompat.h"
 #include "utils/Logger.h"
 #include <stdexcept>
 #include <algorithm>
@@ -87,7 +88,7 @@ void FFmpegDecoder::openFile(const std::string& filename) {
 		throw std::runtime_error("Failed to find stream info");
 	}
 	
-	packet = av_packet_alloc();
+	packet = FFmpegCompat::allocPacket();
 	if (!packet) {
 		throw std::runtime_error("Failed to allocate packet");
 	}
@@ -95,7 +96,11 @@ void FFmpegDecoder::openFile(const std::string& filename) {
 
 void FFmpegDecoder::findVideoStream() {
 	for (unsigned int i = 0; i < formatCtx->nb_streams; i++) {
+#if HAVE_CODECPAR_API
 		if (formatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+#else
+		if (formatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+#endif
 			videoStreamIndex = i;
 			break;
 		}
@@ -121,7 +126,11 @@ void FFmpegDecoder::findVideoStream() {
 
 void FFmpegDecoder::setupDecoder() {
 	AVStream* stream = formatCtx->streams[videoStreamIndex];
+#if HAVE_CODECPAR_API
 	const AVCodec* codec = avcodec_find_decoder(stream->codecpar->codec_id);
+#else
+	const AVCodec* codec = avcodec_find_decoder(stream->codec->codec_id);
+#endif
 	
 	if (!codec) {
 		throw std::runtime_error("Codec not found");
@@ -132,7 +141,7 @@ void FFmpegDecoder::setupDecoder() {
 		throw std::runtime_error("Failed to allocate codec context");
 	}
 	
-	int ret = avcodec_parameters_to_context(codecCtx, stream->codecpar);
+	int ret = FFmpegCompat::copyCodecParameters(codecCtx, stream);
 	if (ret < 0) {
 		throw std::runtime_error("Failed to copy codec parameters");
 	}
@@ -170,7 +179,7 @@ void FFmpegDecoder::cleanup() {
 	}
 	
 	if (packet) {
-		av_packet_free(&packet);
+		FFmpegCompat::freePacket(&packet);
 	}
 	
 	if (formatCtx) {
@@ -203,7 +212,7 @@ bool FFmpegDecoder::seekToFrame(int64_t frameNumber) {
 		}
 		
 		// Flush codec buffers to clear decoder state
-		avcodec_flush_buffers(codecCtx);
+		FFmpegCompat::flushBuffers(codecCtx);
 		
 		// Clear any cached packets
 		av_packet_unref(packet);
@@ -242,9 +251,7 @@ bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
 		if (ret < 0) {
 			if (ret == AVERROR_EOF) {
 				// Try to flush decoder
-				avcodec_send_packet(codecCtx, nullptr);
-				ret = avcodec_receive_frame(codecCtx, frame);
-				if (ret == 0) {
+				if (FFmpegCompat::decodeVideoFrame(codecCtx, frame, nullptr)) {
 					currentFrameNumber++;
 					return true;
 				}
@@ -257,24 +264,15 @@ bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
 			continue;
 		}
 		
-		ret = avcodec_send_packet(codecCtx, packet);
+		if (FFmpegCompat::decodeVideoFrame(codecCtx, frame, packet)) {
+			av_packet_unref(packet);
+			currentFrameNumber++;
+			return true;
+		}
+		
 		av_packet_unref(packet);
-		
-		if (ret < 0) {
-			utils::Logger::error("Error sending packet to decoder");
-			return false;
-		}
-		
-		ret = avcodec_receive_frame(codecCtx, frame);
-		if (ret == AVERROR(EAGAIN)) {
-			continue;
-		} else if (ret < 0) {
-			utils::Logger::error("Error receiving frame from decoder");
-			return false;
-		}
-		
-		currentFrameNumber++;
-		return true;
+		// Continue to next packet if decoding failed or no frame ready
+		continue;
 	}
 }
 

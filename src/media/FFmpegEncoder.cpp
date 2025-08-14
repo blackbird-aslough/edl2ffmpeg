@@ -1,4 +1,5 @@
 #include "media/FFmpegEncoder.h"
+#include "media/FFmpegCompat.h"
 #include "utils/Logger.h"
 #include <stdexcept>
 
@@ -109,7 +110,9 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	codecCtx->height = config.height;
 	codecCtx->pix_fmt = config.pixelFormat;
 	codecCtx->time_base = av_inv_q(config.frameRate);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
 	codecCtx->framerate = config.frameRate;
+#endif
 	codecCtx->bit_rate = config.bitrate;
 	codecCtx->gop_size = 300; // 300 frames GOP - matching ftv_toffmpeg default
 	codecCtx->max_b_frames = 2;
@@ -132,7 +135,11 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	
 	// Some formats want stream headers to be separate
 	if (formatCtx->oformat->flags & AVFMT_GLOBALHEADER) {
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(56, 60, 100)
 		codecCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+#else
+		codecCtx->flags |= CODEC_FLAG_GLOBAL_HEADER;
+#endif
 	}
 	
 	// Open codec
@@ -144,7 +151,7 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	}
 	
 	// Copy codec parameters to stream
-	ret = avcodec_parameters_from_context(videoStream->codecpar, codecCtx);
+	ret = FFmpegCompat::copyCodecParametersToStream(videoStream, codecCtx);
 	if (ret < 0) {
 		throw std::runtime_error("Failed to copy codec parameters");
 	}
@@ -166,7 +173,7 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	}
 	
 	// Allocate packet
-	packet = av_packet_alloc();
+	packet = FFmpegCompat::allocPacket();
 	if (!packet) {
 		throw std::runtime_error("Failed to allocate packet");
 	}
@@ -204,7 +211,7 @@ void FFmpegEncoder::cleanup() {
 	}
 	
 	if (packet) {
-		av_packet_free(&packet);
+		FFmpegCompat::freePacket(&packet);
 	}
 	
 	if (codecCtx) {
@@ -263,59 +270,33 @@ bool FFmpegEncoder::writeFrame(AVFrame* frame) {
 }
 
 bool FFmpegEncoder::encodeFrame(AVFrame* frame) {
-	int ret = avcodec_send_frame(codecCtx, frame);
-	if (ret < 0) {
-		utils::Logger::error("Error sending frame to encoder");
-		return false;
-	}
-	
-	while (ret >= 0) {
-		ret = avcodec_receive_packet(codecCtx, packet);
-		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-			break;
-		} else if (ret < 0) {
-			utils::Logger::error("Error receiving packet from encoder");
-			return false;
-		}
-		
+	if (FFmpegCompat::encodeVideoFrame(codecCtx, frame, packet)) {
 		// Rescale timestamps
 		av_packet_rescale_ts(packet, codecCtx->time_base, videoStream->time_base);
 		packet->stream_index = videoStream->index;
 		
 		// Write packet
-		ret = av_interleaved_write_frame(formatCtx, packet);
+		int ret = av_interleaved_write_frame(formatCtx, packet);
 		av_packet_unref(packet);
 		
 		if (ret < 0) {
 			utils::Logger::error("Error writing packet");
 			return false;
 		}
+		
+		frameCount++;
 	}
 	
-	frameCount++;
 	return true;
 }
 
 bool FFmpegEncoder::flushEncoder() {
-	// Send flush signal
-	int ret = avcodec_send_frame(codecCtx, nullptr);
-	if (ret < 0) {
-		return false;
-	}
-	
-	// Receive remaining packets
-	while (true) {
-		ret = avcodec_receive_packet(codecCtx, packet);
-		if (ret == AVERROR_EOF) {
-			break;
-		} else if (ret < 0) {
-			return false;
-		}
-		
+	// Flush encoder by sending null frame repeatedly
+	while (FFmpegCompat::encodeVideoFrame(codecCtx, nullptr, packet)) {
 		av_packet_rescale_ts(packet, codecCtx->time_base, videoStream->time_base);
 		packet->stream_index = videoStream->index;
 		
-		ret = av_interleaved_write_frame(formatCtx, packet);
+		int ret = av_interleaved_write_frame(formatCtx, packet);
 		av_packet_unref(packet);
 		
 		if (ret < 0) {

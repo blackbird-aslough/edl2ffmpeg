@@ -40,6 +40,40 @@ if(USE_SYSTEM_FFMPEG)
 		libswscale
 		libswresample
 	)
+	
+	# Check FFmpeg version and set compatibility defines
+	execute_process(COMMAND pkg-config --modversion libavcodec
+		OUTPUT_VARIABLE AVCODEC_VERSION
+		OUTPUT_STRIP_TRAILING_WHITESPACE)
+	message(STATUS "Found libavcodec version: ${AVCODEC_VERSION}")
+	
+	# Parse version to get major/minor numbers
+	string(REPLACE "." ";" VERSION_LIST ${AVCODEC_VERSION})
+	list(GET VERSION_LIST 0 AVCODEC_MAJOR)
+	list(GET VERSION_LIST 1 AVCODEC_MINOR)
+	list(GET VERSION_LIST 2 AVCODEC_MICRO)
+	
+	# Calculate version integer for comparison (major * 10000 + minor * 100 + micro)
+	math(EXPR AVCODEC_VERSION_INT "${AVCODEC_MAJOR} * 10000 + ${AVCODEC_MINOR} * 100 + ${AVCODEC_MICRO}")
+	message(STATUS "libavcodec version integer: ${AVCODEC_VERSION_INT}")
+	
+	# Set compatibility defines based on version
+	if(${AVCODEC_VERSION_INT} GREATER_EQUAL 573700)
+		message(STATUS "Using new FFmpeg API (send/receive, codecpar)")
+		add_definitions(-DHAVE_SEND_RECEIVE_API=1)
+		add_definitions(-DHAVE_CODECPAR_API=1)
+	else()
+		message(STATUS "Using legacy FFmpeg API (decode_video2, stream->codec)")
+		add_definitions(-DHAVE_SEND_RECEIVE_API=0)
+		add_definitions(-DHAVE_CODECPAR_API=0)
+	endif()
+	
+	if(${AVCODEC_VERSION_INT} GREATER_EQUAL 578900)
+		add_definitions(-DHAVE_PACKET_ALLOC_API=1)
+	else()
+		add_definitions(-DHAVE_PACKET_ALLOC_API=0)
+	endif()
+	
 endif()
 
 # JSON library - using nlohmann/json
@@ -61,6 +95,7 @@ set(SOURCES
 	src/compositor/FrameCompositor.cpp
 	src/media/FFmpegDecoder.cpp
 	src/media/FFmpegEncoder.cpp
+	src/media/FFmpegCompat.cpp
 	src/utils/Logger.cpp
 	src/utils/FrameBuffer.cpp
 )
