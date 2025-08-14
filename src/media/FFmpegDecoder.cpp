@@ -9,7 +9,15 @@ extern "C" {
 
 namespace media {
 
-FFmpegDecoder::FFmpegDecoder(const std::string& filename) {
+FFmpegDecoder::FFmpegDecoder(const std::string& filename) 
+	: decoderConfig{} {
+	openFile(filename);
+	findVideoStream();
+	setupDecoder();
+}
+
+FFmpegDecoder::FFmpegDecoder(const std::string& filename, const Config& config) 
+	: decoderConfig(config) {
 	openFile(filename);
 	findVideoStream();
 	setupDecoder();
@@ -129,6 +137,11 @@ void FFmpegDecoder::setupDecoder() {
 		throw std::runtime_error("Failed to copy codec parameters");
 	}
 	
+	// Enable multi-threading for decoding
+	// Use configured thread count or auto-detect
+	codecCtx->thread_count = decoderConfig.threadCount; // 0 means auto-detect optimal thread count
+	codecCtx->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE; // Enable both frame and slice threading
+	
 	ret = avcodec_open2(codecCtx, codec, nullptr);
 	if (ret < 0) {
 		throw std::runtime_error("Failed to open codec");
@@ -141,8 +154,9 @@ void FFmpegDecoder::setupDecoder() {
 	// Initialize frame pool
 	framePool = utils::FrameBufferPool(width, height, pixelFormat);
 	
-	utils::Logger::info("Decoder initialized: {}x{} @ {} fps",
-		width, height, (double)frameRate.num / frameRate.den);
+	utils::Logger::info("Decoder initialized: {}x{} @ {} fps, threads: {}",
+		width, height, (double)frameRate.num / frameRate.den,
+		codecCtx->thread_count == 0 ? "auto" : std::to_string(codecCtx->thread_count));
 }
 
 void FFmpegDecoder::cleanup() {

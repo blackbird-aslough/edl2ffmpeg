@@ -9,7 +9,12 @@ namespace media {
 
 class FFmpegDecoder {
 public:
+	struct Config {
+		int threadCount = 0;  // 0 = auto-detect, >0 = specific count
+	};
+	
 	FFmpegDecoder(const std::string& filename);
+	FFmpegDecoder(const std::string& filename, const Config& config);
 	~FFmpegDecoder();
 	
 	// Disable copy
@@ -56,6 +61,7 @@ private:
 	int64_t totalFrames = 0;
 	int64_t currentFrameNumber = -1;
 	
+	Config decoderConfig;
 	utils::FrameBufferPool framePool;
 };
 

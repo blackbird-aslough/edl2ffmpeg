@@ -117,6 +117,11 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	// Set stream time base
 	videoStream->time_base = codecCtx->time_base;
 	
+	// Enable multi-threading for encoding
+	// Use configured thread count or auto-detect
+	codecCtx->thread_count = config.threadCount; // 0 means auto-detect optimal thread count
+	codecCtx->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE; // Enable both frame and slice threading
+	
 	// Set codec-specific options
 	if (config.codec == "libx264" || config.codec == "libx265") {
 		av_opt_set(codecCtx->priv_data, "preset", config.preset.c_str(), 0);
@@ -179,10 +184,11 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 		throw std::runtime_error("Failed to allocate conversion frame buffer");
 	}
 	
-	utils::Logger::info("Encoder initialized: {}x{} @ {} fps, codec: {}",
+	utils::Logger::info("Encoder initialized: {}x{} @ {} fps, codec: {}, threads: {}",
 		config.width, config.height,
 		(double)config.frameRate.num / config.frameRate.den,
-		config.codec);
+		config.codec,
+		codecCtx->thread_count == 0 ? "auto" : std::to_string(codecCtx->thread_count));
 }
 
 void FFmpegEncoder::cleanup() {

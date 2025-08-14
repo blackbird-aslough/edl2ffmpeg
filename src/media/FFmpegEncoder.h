@@ -16,6 +16,7 @@ public:
 		AVRational frameRate = {30, 1};
 		std::string preset = "medium";
 		int crf = 23;  // Constant Rate Factor for x264/x265
+		int threadCount = 0;  // 0 = auto-detect, >0 = specific count
 	};
 	
 	FFmpegEncoder(const std::string& filename, const Config& config);
