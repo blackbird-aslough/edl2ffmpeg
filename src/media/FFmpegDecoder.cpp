@@ -7,7 +7,9 @@
 
 extern "C" {
 #include <libavutil/imgutils.h>
+#if HAVE_HWDEVICE_API
 #include <libavutil/hwcontext.h>
+#endif
 }
 
 namespace media {
@@ -207,9 +209,12 @@ void FFmpegDecoder::setupDecoder() {
 	
 	// Set up hardware acceleration context if needed
 	if (usingHardware && hwDeviceCtx) {
+#if HAVE_HWDEVICE_API
 		codecCtx->hw_device_ctx = av_buffer_ref(hwDeviceCtx);
+#endif
 		
 		// For VAAPI and VideoToolbox, we need to get the hardware pixel format
+#if HAVE_HWDEVICE_API
 		if (codecName.find("cuvid") == std::string::npos) {
 			// Not using CUVID, need to find the hardware config
 			for (int i = 0;; i++) {
@@ -230,6 +235,7 @@ void FFmpegDecoder::setupDecoder() {
 				}
 			}
 		}
+#endif
 	}
 	
 	// Enable multi-threading for decoding
@@ -461,6 +467,7 @@ bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
 				success = false;
 			} else {
 				// Set up the temporary frame format
+#if HAVE_HWDEVICE_API
 				if (hwFrame->hw_frames_ctx) {
 					AVHWFramesContext* hwFramesCtx = (AVHWFramesContext*)hwFrame->hw_frames_ctx->data;
 					tempFrame->format = hwFramesCtx->sw_format;
@@ -468,6 +475,9 @@ bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
 					// Fallback to NV12 which is common for VideoToolbox
 					tempFrame->format = AV_PIX_FMT_NV12;
 				}
+#else
+				tempFrame->format = AV_PIX_FMT_NV12;
+#endif
 				tempFrame->width = hwFrame->width;
 				tempFrame->height = hwFrame->height;
 				
@@ -478,7 +488,11 @@ bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
 					success = false;
 				} else {
 					// Transfer from hardware to temporary frame
+#if HAVE_HWDEVICE_API
 					int transferRet = av_hwframe_transfer_data(tempFrame, hwFrame, 0);
+#else
+					int transferRet = -1;
+#endif
 					if (transferRet < 0) {
 						char errbuf[AV_ERROR_MAX_STRING_SIZE];
 						av_strerror(transferRet, errbuf, sizeof(errbuf));

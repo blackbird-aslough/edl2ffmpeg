@@ -7,7 +7,9 @@
 extern "C" {
 #include <libavutil/opt.h>
 #include <libavutil/imgutils.h>
+#if HAVE_HWDEVICE_API
 #include <libavutil/hwcontext.h>
+#endif
 }
 
 namespace media {
@@ -160,7 +162,9 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	// Set pixel format based on hardware acceleration
 	if (usingHardware && hwDeviceCtx) {
 		// Set hardware device context
+#if HAVE_HWDEVICE_API
 		codecCtx->hw_device_ctx = av_buffer_ref(hwDeviceCtx);
+#endif
 		
 		// Use hardware pixel format
 		HWAccelType hwType = config.hwConfig.type == HWAccelType::Auto ? 
@@ -169,6 +173,7 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 		
 		// For hardware encoders, we need to set up frames context
 		// This allows direct GPU-to-GPU transfer
+#if HAVE_HWDEVICE_API
 		AVBufferRef* hwFramesRef = av_hwframe_ctx_alloc(hwDeviceCtx);
 		if (hwFramesRef) {
 			AVHWFramesContext* hwFramesCtx = (AVHWFramesContext*)hwFramesRef->data;
@@ -184,9 +189,12 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 				av_buffer_unref(&hwFramesRef);
 			}
 		}
+#endif
 		
 		codecCtx->pix_fmt = hwPixFmt;
+#if HAVE_HWDEVICE_API
 		codecCtx->sw_pix_fmt = config.pixelFormat;
+#endif
 	} else {
 		codecCtx->pix_fmt = config.pixelFormat;
 	}
@@ -458,16 +466,24 @@ bool FFmpegEncoder::writeHardwareFrame(AVFrame* frame) {
 		);
 		hwFrame->width = frame->width;
 		hwFrame->height = frame->height;
+#if HAVE_HWDEVICE_API
 		hwFrame->hw_frames_ctx = av_buffer_ref(codecCtx->hw_frames_ctx);
 		
 		int ret = av_hwframe_get_buffer(codecCtx->hw_frames_ctx, hwFrame, 0);
+#else
+		int ret = -1;
+#endif
 		if (ret < 0) {
 			utils::Logger::error("Failed to get hardware buffer");
 			return false;
 		}
 		
 		// Transfer software frame to hardware
+#if HAVE_HWDEVICE_API
 		ret = av_hwframe_transfer_data(hwFrame, frame, 0);
+#else
+		ret = -1;
+#endif
 		if (ret < 0) {
 			utils::Logger::error("Failed to transfer frame to GPU");
 			av_frame_unref(hwFrame);

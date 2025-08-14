@@ -6,7 +6,9 @@
 
 extern "C" {
 #include <libavcodec/avcodec.h>
+#if HAVE_HWDEVICE_API
 #include <libavutil/hwcontext.h>
+#endif
 }
 
 namespace media {

@@ -74,6 +74,16 @@ if(USE_SYSTEM_FFMPEG)
 		add_definitions(-DHAVE_PACKET_ALLOC_API=0)
 	endif()
 	
+	# Disable GPU features for legacy FFmpeg (< 3.2)
+	# Hardware acceleration APIs were introduced in FFmpeg 3.2 (57.64.100)
+	if(${AVCODEC_VERSION_INT} LESS 576400)
+		message(WARNING "Disabling GPU acceleration for legacy FFmpeg version ${AVCODEC_VERSION}")
+		set(ENABLE_GPU OFF)
+		add_definitions(-DHAVE_HWDEVICE_API=0)
+	else()
+		add_definitions(-DHAVE_HWDEVICE_API=1)
+	endif()
+	
 endif()
 
 # JSON library - using nlohmann/json

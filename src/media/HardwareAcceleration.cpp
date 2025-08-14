@@ -6,6 +6,9 @@
 extern "C" {
 #include <libavutil/pixdesc.h>
 #include <libavutil/opt.h>
+#if HAVE_HWDEVICE_API
+#include <libavutil/hwcontext.h>
+#endif
 }
 
 namespace media {
@@ -62,16 +65,22 @@ HWAccelType HardwareAcceleration::getBestAccelType() {
 }
 
 AVBufferRef* HardwareAcceleration::createHWDeviceContext(HWAccelType type, int deviceIndex) {
+#if HAVE_HWDEVICE_API
 	AVBufferRef* hwDeviceCtx = nullptr;
 	int ret = 0;
 	
 	switch (type) {
 	case HWAccelType::NVENC:
+#ifdef AV_HWDEVICE_TYPE_CUDA
 		ret = av_hwdevice_ctx_create(&hwDeviceCtx, AV_HWDEVICE_TYPE_CUDA, 
 			std::to_string(deviceIndex).c_str(), nullptr, 0);
+#else
+		ret = -1;
+#endif
 		break;
 		
 	case HWAccelType::VAAPI: {
+#ifdef AV_HWDEVICE_TYPE_VAAPI
 		// Try common VAAPI device paths
 		std::vector<std::string> devicePaths = {
 			"/dev/dri/renderD128",
@@ -90,12 +99,19 @@ AVBufferRef* HardwareAcceleration::createHWDeviceContext(HWAccelType type, int d
 				}
 			}
 		}
+#else
+		ret = -1;
+#endif
 		break;
 	}
 		
 	case HWAccelType::VideoToolbox:
+#ifdef AV_HWDEVICE_TYPE_VIDEOTOOLBOX
 		ret = av_hwdevice_ctx_create(&hwDeviceCtx, AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
 			nullptr, nullptr, 0);
+#else
+		ret = -1;
+#endif
 		break;
 		
 	default:
@@ -111,16 +127,34 @@ AVBufferRef* HardwareAcceleration::createHWDeviceContext(HWAccelType type, int d
 	}
 	
 	return hwDeviceCtx;
+#else
+	(void)type;
+	(void)deviceIndex;
+	utils::Logger::info("Hardware device context creation not supported in legacy FFmpeg");
+	return nullptr;
+#endif
 }
 
 AVPixelFormat HardwareAcceleration::getHWPixelFormat(HWAccelType type) {
 	switch (type) {
 	case HWAccelType::NVENC:
+#ifdef AV_PIX_FMT_CUDA
 		return AV_PIX_FMT_CUDA;
+#else
+		return AV_PIX_FMT_NONE;
+#endif
 	case HWAccelType::VAAPI:
+#ifdef AV_PIX_FMT_VAAPI
 		return AV_PIX_FMT_VAAPI;
+#else
+		return AV_PIX_FMT_NONE;
+#endif
 	case HWAccelType::VideoToolbox:
+#ifdef AV_PIX_FMT_VIDEOTOOLBOX
 		return AV_PIX_FMT_VIDEOTOOLBOX;
+#else
+		return AV_PIX_FMT_NONE;
+#endif
 	default:
 		return AV_PIX_FMT_NONE;
 	}
@@ -133,7 +167,9 @@ std::string HardwareAcceleration::getHWDecoderName(AVCodecID codecId, HWAccelTyp
 		case AV_CODEC_ID_H264: return "h264_cuvid";
 		case AV_CODEC_ID_HEVC: return "hevc_cuvid";
 		case AV_CODEC_ID_VP9: return "vp9_cuvid";
+#ifdef AV_CODEC_ID_AV1
 		case AV_CODEC_ID_AV1: return "av1_cuvid";
+#endif
 		default: return "";
 		}
 		
@@ -156,7 +192,9 @@ std::string HardwareAcceleration::getHWEncoderName(AVCodecID codecId, HWAccelTyp
 		switch (codecId) {
 		case AV_CODEC_ID_H264: return "h264_nvenc";
 		case AV_CODEC_ID_HEVC: return "hevc_nvenc";
+#ifdef AV_CODEC_ID_AV1
 		case AV_CODEC_ID_AV1: return "av1_nvenc";
+#endif
 		default: return "";
 		}
 		
@@ -166,7 +204,9 @@ std::string HardwareAcceleration::getHWEncoderName(AVCodecID codecId, HWAccelTyp
 		case AV_CODEC_ID_HEVC: return "hevc_vaapi";
 		case AV_CODEC_ID_VP8: return "vp8_vaapi";
 		case AV_CODEC_ID_VP9: return "vp9_vaapi";
+#ifdef AV_CODEC_ID_AV1
 		case AV_CODEC_ID_AV1: return "av1_vaapi";
+#endif
 		default: return "";
 		}
 		
@@ -185,41 +225,78 @@ std::string HardwareAcceleration::getHWEncoderName(AVCodecID codecId, HWAccelTyp
 bool HardwareAcceleration::isHardwareFrame(const AVFrame* frame) {
 	if (!frame) return false;
 	
+#if defined(AV_PIX_FMT_CUDA) || defined(AV_PIX_FMT_VAAPI) || defined(AV_PIX_FMT_VIDEOTOOLBOX) || defined(AV_PIX_FMT_QSV) || defined(AV_PIX_FMT_VULKAN)
 	switch (frame->format) {
+#ifdef AV_PIX_FMT_CUDA
 	case AV_PIX_FMT_CUDA:
+#endif
+#ifdef AV_PIX_FMT_VAAPI
 	case AV_PIX_FMT_VAAPI:
+#endif
+#ifdef AV_PIX_FMT_VIDEOTOOLBOX
 	case AV_PIX_FMT_VIDEOTOOLBOX:
+#endif
+#ifdef AV_PIX_FMT_QSV
 	case AV_PIX_FMT_QSV:
+#endif
+#ifdef AV_PIX_FMT_VULKAN
 	case AV_PIX_FMT_VULKAN:
+#endif
 		return true;
 	default:
 		return false;
 	}
+#else
+	(void)frame; // Suppress unused parameter warning
+	return false;
+#endif
 }
 
 bool HardwareAcceleration::isHardwarePixelFormat(AVPixelFormat format) {
+#if defined(AV_PIX_FMT_CUDA) || defined(AV_PIX_FMT_VAAPI) || defined(AV_PIX_FMT_VIDEOTOOLBOX) || defined(AV_PIX_FMT_QSV) || defined(AV_PIX_FMT_VULKAN)
 	switch (format) {
+#ifdef AV_PIX_FMT_CUDA
 	case AV_PIX_FMT_CUDA:
+#endif
+#ifdef AV_PIX_FMT_VAAPI
 	case AV_PIX_FMT_VAAPI:
+#endif
+#ifdef AV_PIX_FMT_VIDEOTOOLBOX
 	case AV_PIX_FMT_VIDEOTOOLBOX:
+#endif
+#ifdef AV_PIX_FMT_QSV
 	case AV_PIX_FMT_QSV:
+#endif
+#ifdef AV_PIX_FMT_VULKAN
 	case AV_PIX_FMT_VULKAN:
+#endif
 		return true;
 	default:
 		return false;
 	}
+#else
+	(void)format; // Suppress unused parameter warning
+	return false;
+#endif
 }
 
 int HardwareAcceleration::transferHWFrameToSW(AVFrame* hwFrame, AVFrame* swFrame) {
+#if HAVE_HWDEVICE_API
 	if (!hwFrame || !swFrame) {
 		return AVERROR(EINVAL);
 	}
 	
 	// Transfer data from GPU to CPU
 	return av_hwframe_transfer_data(swFrame, hwFrame, 0);
+#else
+	(void)hwFrame;
+	(void)swFrame;
+	return AVERROR(ENOSYS);
+#endif
 }
 
 int HardwareAcceleration::transferSWFrameToHW(AVFrame* swFrame, AVFrame* hwFrame, AVBufferRef* hwDeviceCtx) {
+#if HAVE_HWDEVICE_API
 	if (!swFrame || !hwFrame || !hwDeviceCtx) {
 		return AVERROR(EINVAL);
 	}
@@ -248,6 +325,12 @@ int HardwareAcceleration::transferSWFrameToHW(AVFrame* swFrame, AVFrame* hwFrame
 	
 	// Transfer data from CPU to GPU
 	return av_hwframe_transfer_data(hwFrame, swFrame, 0);
+#else
+	(void)swFrame;
+	(void)hwFrame;
+	(void)hwDeviceCtx;
+	return AVERROR(ENOSYS);
+#endif
 }
 
 std::string HardwareAcceleration::hwAccelTypeToString(HWAccelType type) {
@@ -287,8 +370,12 @@ std::vector<HWDevice> HardwareAcceleration::detectNVENC() {
 	// Try to create CUDA contexts for each GPU
 	for (int i = 0; i < 8; i++) { // Check up to 8 GPUs
 		AVBufferRef* testCtx = nullptr;
+#if HAVE_HWDEVICE_API && defined(AV_HWDEVICE_TYPE_CUDA)
 		int ret = av_hwdevice_ctx_create(&testCtx, AV_HWDEVICE_TYPE_CUDA,
 			std::to_string(i).c_str(), nullptr, 0);
+#else
+		int ret = -1; // Not supported in legacy FFmpeg
+#endif
 		
 		if (ret >= 0) {
 			HWDevice device;
@@ -329,8 +416,12 @@ std::vector<HWDevice> HardwareAcceleration::detectVAAPI() {
 	for (const auto& path : devicePaths) {
 		if (fs::exists(path)) {
 			AVBufferRef* testCtx = nullptr;
+#if HAVE_HWDEVICE_API && defined(AV_HWDEVICE_TYPE_VAAPI)
 			int ret = av_hwdevice_ctx_create(&testCtx, AV_HWDEVICE_TYPE_VAAPI,
 				path.c_str(), nullptr, 0);
+#else
+			int ret = -1; // Not supported in legacy FFmpeg
+#endif
 			
 			if (ret >= 0) {
 				HWDevice device;
@@ -357,8 +448,12 @@ std::vector<HWDevice> HardwareAcceleration::detectVideoToolbox() {
 #ifdef HAVE_VIDEOTOOLBOX
 	// VideoToolbox doesn't have multiple devices
 	AVBufferRef* testCtx = nullptr;
+#if HAVE_HWDEVICE_API && defined(AV_HWDEVICE_TYPE_VIDEOTOOLBOX)
 	int ret = av_hwdevice_ctx_create(&testCtx, AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
 		nullptr, nullptr, 0);
+#else
+	int ret = -1; // Not supported in legacy FFmpeg
+#endif
 	
 	if (ret >= 0) {
 		HWDevice device;
