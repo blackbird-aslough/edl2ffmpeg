@@ -1,11 +1,13 @@
 #include "media/FFmpegDecoder.h"
 #include "media/FFmpegCompat.h"
+#include "media/HardwareAcceleration.h"
 #include "utils/Logger.h"
 #include <stdexcept>
 #include <algorithm>
 
 extern "C" {
 #include <libavutil/imgutils.h>
+#include <libavutil/hwcontext.h>
 }
 
 namespace media {
@@ -127,13 +129,62 @@ void FFmpegDecoder::findVideoStream() {
 void FFmpegDecoder::setupDecoder() {
 	AVStream* stream = formatCtx->streams[videoStreamIndex];
 #if HAVE_CODECPAR_API
-	const AVCodec* codec = avcodec_find_decoder(stream->codecpar->codec_id);
+	AVCodecID codecId = stream->codecpar->codec_id;
 #else
-	const AVCodec* codec = avcodec_find_decoder(stream->codec->codec_id);
+	AVCodecID codecId = stream->codec->codec_id;
 #endif
 	
+	const AVCodec* codec = nullptr;
+	std::string codecName;
+	
+	// Try hardware decoder if requested
+	if (decoderConfig.useHardwareDecoder) {
+		HWAccelType hwType = decoderConfig.hwConfig.type;
+		if (hwType == HWAccelType::Auto) {
+			hwType = HardwareAcceleration::getBestAccelType();
+		}
+		
+		if (hwType != HWAccelType::None) {
+			std::string hwDecoderName = HardwareAcceleration::getHWDecoderName(codecId, hwType);
+			
+			// For NVENC, use specific CUVID decoders
+			if (!hwDecoderName.empty()) {
+				codec = avcodec_find_decoder_by_name(hwDecoderName.c_str());
+				if (codec) {
+					codecName = hwDecoderName;
+					usingHardware = true;
+					utils::Logger::info("Using hardware decoder: {}", hwDecoderName);
+				}
+			} else if (hwType == HWAccelType::VAAPI || hwType == HWAccelType::VideoToolbox) {
+				// VAAPI and VideoToolbox use standard decoders with hwaccel
+				codec = avcodec_find_decoder(codecId);
+				if (codec) {
+					// Will set up hardware context after allocating codec context
+					usingHardware = true;
+					codecName = codec->name;
+					utils::Logger::info("Using hardware acceleration with decoder: {}", codecName);
+				}
+			}
+			
+			// Create hardware device context
+			if (usingHardware) {
+				hwDeviceCtx = HardwareAcceleration::createHWDeviceContext(hwType, decoderConfig.hwConfig.deviceIndex);
+				if (!hwDeviceCtx) {
+					utils::Logger::warn("Failed to create hardware device context, falling back to software");
+					codec = nullptr;
+					usingHardware = false;
+				}
+			}
+		}
+	}
+	
+	// Fall back to software decoder
 	if (!codec) {
-		throw std::runtime_error("Codec not found");
+		codec = avcodec_find_decoder(codecId);
+		if (!codec) {
+			throw std::runtime_error("Codec not found");
+		}
+		codecName = codec->name;
 	}
 	
 	codecCtx = avcodec_alloc_context3(codec);
@@ -144,6 +195,33 @@ void FFmpegDecoder::setupDecoder() {
 	int ret = FFmpegCompat::copyCodecParameters(codecCtx, stream);
 	if (ret < 0) {
 		throw std::runtime_error("Failed to copy codec parameters");
+	}
+	
+	// Set up hardware acceleration context if needed
+	if (usingHardware && hwDeviceCtx) {
+		codecCtx->hw_device_ctx = av_buffer_ref(hwDeviceCtx);
+		
+		// For VAAPI and VideoToolbox, we need to get the hardware pixel format
+		if (codecName.find("cuvid") == std::string::npos) {
+			// Not using CUVID, need to find the hardware config
+			for (int i = 0;; i++) {
+				const AVCodecHWConfig* config = avcodec_get_hw_config(codec, i);
+				if (!config) {
+					break;
+				}
+				
+				if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) {
+					HWAccelType hwType = decoderConfig.hwConfig.type == HWAccelType::Auto ? 
+						HardwareAcceleration::getBestAccelType() : decoderConfig.hwConfig.type;
+					AVPixelFormat expectedFormat = HardwareAcceleration::getHWPixelFormat(hwType);
+					
+					if (config->pix_fmt == expectedFormat) {
+						codecCtx->pix_fmt = config->pix_fmt;
+						break;
+					}
+				}
+			}
+		}
 	}
 	
 	// Enable multi-threading for decoding
@@ -163,9 +241,10 @@ void FFmpegDecoder::setupDecoder() {
 	// Initialize frame pool
 	framePool = utils::FrameBufferPool(width, height, pixelFormat);
 	
-	utils::Logger::info("Decoder initialized: {}x{} @ {} fps, threads: {}",
+	utils::Logger::info("Decoder initialized: {}x{} @ {} fps, threads: {}, hardware: {}",
 		width, height, (double)frameRate.num / frameRate.den,
-		codecCtx->thread_count == 0 ? "auto" : std::to_string(codecCtx->thread_count));
+		codecCtx->thread_count == 0 ? "auto" : std::to_string(codecCtx->thread_count),
+		usingHardware ? "yes" : "no");
 }
 
 void FFmpegDecoder::cleanup() {
@@ -176,6 +255,10 @@ void FFmpegDecoder::cleanup() {
 	
 	if (codecCtx) {
 		avcodec_free_context(&codecCtx);
+	}
+	
+	if (hwDeviceCtx) {
+		av_buffer_unref(&hwDeviceCtx);
 	}
 	
 	if (packet) {
@@ -246,17 +329,32 @@ std::shared_ptr<AVFrame> FFmpegDecoder::getFrame(int64_t frameNumber) {
 }
 
 bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
+	// Use a temporary frame for hardware decoding
+	AVFrame* decodedFrame = frame;
+	AVFrame* hwFrame = nullptr;
+	
+	if (usingHardware) {
+		hwFrame = av_frame_alloc();
+		if (!hwFrame) {
+			return false;
+		}
+		decodedFrame = hwFrame;
+	}
+	
+	bool success = false;
+	
 	while (true) {
 		int ret = av_read_frame(formatCtx, packet);
 		if (ret < 0) {
 			if (ret == AVERROR_EOF) {
 				// Try to flush decoder
-				if (FFmpegCompat::decodeVideoFrame(codecCtx, frame, nullptr)) {
+				if (FFmpegCompat::decodeVideoFrame(codecCtx, decodedFrame, nullptr)) {
 					currentFrameNumber++;
-					return true;
+					success = true;
+					break;
 				}
 			}
-			return false;
+			break;
 		}
 		
 		if (packet->stream_index != videoStreamIndex) {
@@ -264,16 +362,38 @@ bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
 			continue;
 		}
 		
-		if (FFmpegCompat::decodeVideoFrame(codecCtx, frame, packet)) {
+		if (FFmpegCompat::decodeVideoFrame(codecCtx, decodedFrame, packet)) {
 			av_packet_unref(packet);
 			currentFrameNumber++;
-			return true;
+			success = true;
+			break;
 		}
 		
 		av_packet_unref(packet);
 		// Continue to next packet if decoding failed or no frame ready
 		continue;
 	}
+	
+	// If using hardware decoding, transfer the frame to software
+	if (success && usingHardware && hwFrame) {
+		if (HardwareAcceleration::isHardwareFrame(hwFrame)) {
+			int transferRet = HardwareAcceleration::transferHWFrameToSW(hwFrame, frame);
+			if (transferRet < 0) {
+				utils::Logger::error("Failed to transfer hardware frame to software");
+				success = false;
+			}
+		} else {
+			// Frame is already in software format (can happen with some decoders)
+			av_frame_copy(frame, hwFrame);
+			av_frame_copy_props(frame, hwFrame);
+		}
+	}
+	
+	if (hwFrame) {
+		av_frame_free(&hwFrame);
+	}
+	
+	return success;
 }
 
 int64_t FFmpegDecoder::ptsToFrameNumber(int64_t pts) const {

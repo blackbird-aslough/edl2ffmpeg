@@ -1,6 +1,7 @@
 #pragma once
 
 #include "media/MediaTypes.h"
+#include "media/HardwareAcceleration.h"
 #include "utils/FrameBuffer.h"
 #include <string>
 #include <memory>
@@ -11,6 +12,10 @@ class FFmpegDecoder {
 public:
 	struct Config {
 		int threadCount = 0;  // 0 = auto-detect, >0 = specific count
+		
+		// Hardware acceleration settings
+		HWConfig hwConfig;
+		bool useHardwareDecoder = false;  // Enable hardware decoding
 	};
 	
 	FFmpegDecoder(const std::string& filename);
@@ -51,6 +56,10 @@ private:
 	AVCodecContext* codecCtx = nullptr;
 	AVPacket* packet = nullptr;
 	SwsContext* swsCtx = nullptr;
+	
+	// Hardware acceleration members
+	AVBufferRef* hwDeviceCtx = nullptr;
+	bool usingHardware = false;
 	
 	int videoStreamIndex = -1;
 	int width = 0;

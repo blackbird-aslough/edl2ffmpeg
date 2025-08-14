@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Options
 option(BUILD_TESTS "Build test suite" ON)
 option(ENABLE_SIMD "Enable SIMD optimizations" ON)
-option(ENABLE_GPU "Enable GPU acceleration" OFF)
+option(ENABLE_GPU "Enable GPU acceleration" ON)
 option(USE_SYSTEM_FFMPEG "Use system FFmpeg instead of building" ON)
 option(PROFILE_BUILD "Enable profiling instrumentation" OFF)
 
@@ -87,6 +87,38 @@ if(NOT nlohmann_json_FOUND)
 	FetchContent_MakeAvailable(json)
 endif()
 
+# Platform detection for GPU acceleration
+if(ENABLE_GPU)
+	if(APPLE)
+		# macOS - VideoToolbox is included in the system
+		message(STATUS "GPU acceleration: VideoToolbox (macOS)")
+		add_definitions(-DHAVE_VIDEOTOOLBOX=1)
+	elseif(UNIX AND NOT APPLE)
+		# Linux - Check for NVIDIA and VAAPI
+		find_package(PkgConfig)
+		
+		# Check for CUDA/NVENC support
+		find_package(CUDA QUIET)
+		if(CUDA_FOUND)
+			message(STATUS "GPU acceleration: NVENC/NVDEC (NVIDIA CUDA found)")
+			add_definitions(-DHAVE_NVENC=1)
+		endif()
+		
+		# Check for VAAPI support (Intel/AMD)
+		pkg_check_modules(LIBVA libva)
+		if(LIBVA_FOUND)
+			message(STATUS "GPU acceleration: VAAPI (libva found)")
+			add_definitions(-DHAVE_VAAPI=1)
+		endif()
+		
+		if(NOT CUDA_FOUND AND NOT LIBVA_FOUND)
+			message(WARNING "No GPU acceleration libraries found on Linux")
+		endif()
+	endif()
+else()
+	message(STATUS "GPU acceleration disabled")
+endif()
+
 # Source files
 set(SOURCES
 	src/main.cpp
@@ -96,6 +128,7 @@ set(SOURCES
 	src/media/FFmpegDecoder.cpp
 	src/media/FFmpegEncoder.cpp
 	src/media/FFmpegCompat.cpp
+	src/media/HardwareAcceleration.cpp
 	src/utils/Logger.cpp
 	src/utils/FrameBuffer.cpp
 )

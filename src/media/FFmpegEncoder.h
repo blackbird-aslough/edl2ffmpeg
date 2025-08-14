@@ -1,6 +1,7 @@
 #pragma once
 
 #include "media/MediaTypes.h"
+#include "media/HardwareAcceleration.h"
 #include <string>
 
 namespace media {
@@ -17,6 +18,10 @@ public:
 		std::string preset = "faster";  // matching ftv_toffmpeg default
 		int crf = 23;  // Constant Rate Factor for x264/x265
 		int threadCount = 0;  // 0 = auto-detect, >0 = specific count
+		
+		// Hardware acceleration settings
+		HWConfig hwConfig;
+		bool useHardwareEncoder = false;  // Enable hardware encoding
 	};
 	
 	FFmpegEncoder(const std::string& filename, const Config& config);
@@ -47,6 +52,11 @@ private:
 	AVPacket* packet = nullptr;
 	SwsContext* swsCtx = nullptr;
 	AVFrame* convertedFrame = nullptr;
+	
+	// Hardware acceleration members
+	AVBufferRef* hwDeviceCtx = nullptr;
+	AVFrame* hwFrame = nullptr;
+	bool usingHardware = false;
 	
 	Config config;
 	int64_t frameCount = 0;

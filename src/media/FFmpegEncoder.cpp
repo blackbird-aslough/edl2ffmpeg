@@ -1,11 +1,13 @@
 #include "media/FFmpegEncoder.h"
 #include "media/FFmpegCompat.h"
+#include "media/HardwareAcceleration.h"
 #include "utils/Logger.h"
 #include <stdexcept>
 
 extern "C" {
 #include <libavutil/opt.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/hwcontext.h>
 }
 
 namespace media {
@@ -76,19 +78,57 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 		throw std::runtime_error("Failed to allocate output context");
 	}
 	
-	// Find encoder
-	const AVCodec* codec = avcodec_find_encoder_by_name(config.codec.c_str());
+	// Determine codec to use
+	const AVCodec* codec = nullptr;
+	std::string codecName = config.codec;
+	AVCodecID codecId = AV_CODEC_ID_NONE;
+	
+	// Map codec names to IDs
+	if (config.codec == "libx264" || config.codec == "h264") {
+		codecId = AV_CODEC_ID_H264;
+	} else if (config.codec == "libx265" || config.codec == "hevc") {
+		codecId = AV_CODEC_ID_HEVC;
+	}
+	
+	// Try hardware encoder if requested
+	if (config.useHardwareEncoder && codecId != AV_CODEC_ID_NONE) {
+		HWAccelType hwType = config.hwConfig.type;
+		if (hwType == HWAccelType::Auto) {
+			hwType = HardwareAcceleration::getBestAccelType();
+		}
+		
+		if (hwType != HWAccelType::None) {
+			std::string hwCodecName = HardwareAcceleration::getHWEncoderName(codecId, hwType);
+			if (!hwCodecName.empty()) {
+				codec = avcodec_find_encoder_by_name(hwCodecName.c_str());
+				if (codec) {
+					codecName = hwCodecName;
+					usingHardware = true;
+					utils::Logger::info("Using hardware encoder: {}", hwCodecName);
+					
+					// Create hardware device context
+					hwDeviceCtx = HardwareAcceleration::createHWDeviceContext(hwType, config.hwConfig.deviceIndex);
+					if (!hwDeviceCtx) {
+						utils::Logger::warn("Failed to create hardware device context, falling back to software");
+						codec = nullptr;
+						usingHardware = false;
+					}
+				}
+			}
+		}
+	}
+	
+	// Fall back to software encoder
 	if (!codec) {
-		// Try to find by ID if name fails
-		if (config.codec == "libx264") {
-			codec = avcodec_find_encoder(AV_CODEC_ID_H264);
-		} else if (config.codec == "libx265") {
-			codec = avcodec_find_encoder(AV_CODEC_ID_HEVC);
+		codec = avcodec_find_encoder_by_name(config.codec.c_str());
+		if (!codec && codecId != AV_CODEC_ID_NONE) {
+			codec = avcodec_find_encoder(codecId);
 		}
 		
 		if (!codec) {
 			throw std::runtime_error("Codec not found: " + config.codec);
 		}
+		codecName = config.codec;
 	}
 	
 	// Create new video stream
@@ -108,7 +148,25 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	codecCtx->codec_type = AVMEDIA_TYPE_VIDEO;
 	codecCtx->width = config.width;
 	codecCtx->height = config.height;
-	codecCtx->pix_fmt = config.pixelFormat;
+	
+	// Set pixel format based on hardware acceleration
+	if (usingHardware && hwDeviceCtx) {
+		// Set hardware device context
+		codecCtx->hw_device_ctx = av_buffer_ref(hwDeviceCtx);
+		
+		// Use hardware pixel format
+		HWAccelType hwType = config.hwConfig.type == HWAccelType::Auto ? 
+			HardwareAcceleration::getBestAccelType() : config.hwConfig.type;
+		AVPixelFormat hwPixFmt = HardwareAcceleration::getHWPixelFormat(hwType);
+		
+		// For hardware encoders, we typically use the software format
+		// The encoder will handle the upload to GPU
+		codecCtx->pix_fmt = config.pixelFormat;
+		codecCtx->sw_pix_fmt = config.pixelFormat;
+	} else {
+		codecCtx->pix_fmt = config.pixelFormat;
+	}
+	
 	codecCtx->time_base = av_inv_q(config.frameRate);
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100)
 	codecCtx->framerate = config.frameRate;
@@ -130,7 +188,7 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	codecCtx->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE; // Enable both frame and slice threading
 	
 	// Set codec-specific options
-	if (config.codec == "libx264" || config.codec == "libx265") {
+	if (codecName == "libx264" || codecName == "libx265") {
 		av_opt_set(codecCtx->priv_data, "preset", config.preset.c_str(), 0);
 		
 		// Use CRF mode only if explicitly requested (crf >= 0 and bitrate <= 0)
@@ -142,6 +200,40 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 		} else {
 			// Bitrate mode - set bitrate tolerance (-bt option in ftv_toffmpeg)
 			codecCtx->bit_rate_tolerance = config.bitrate;
+		}
+	} else if (codecName.find("nvenc") != std::string::npos) {
+		// NVENC specific options
+		av_opt_set(codecCtx->priv_data, "preset", "p4", 0); // Balanced preset
+		av_opt_set(codecCtx->priv_data, "rc", "vbr", 0); // Variable bitrate
+		av_opt_set(codecCtx->priv_data, "spatial-aq", "1", 0); // Spatial AQ
+		av_opt_set(codecCtx->priv_data, "temporal-aq", "1", 0); // Temporal AQ
+		av_opt_set(codecCtx->priv_data, "lookahead", "32", 0); // Look-ahead frames
+		
+		if (config.crf >= 0 && config.bitrate <= 0) {
+			av_opt_set(codecCtx->priv_data, "rc", "constqp", 0);
+			av_opt_set_int(codecCtx->priv_data, "qp", config.crf, 0);
+			codecCtx->bit_rate = 0;
+		}
+	} else if (codecName.find("vaapi") != std::string::npos) {
+		// VAAPI specific options
+		av_opt_set_int(codecCtx->priv_data, "quality", 25, 0); // Quality level
+		av_opt_set(codecCtx->priv_data, "rc_mode", "VBR", 0); // Variable bitrate
+		
+		if (config.crf >= 0 && config.bitrate <= 0) {
+			av_opt_set(codecCtx->priv_data, "rc_mode", "CQP", 0);
+			av_opt_set_int(codecCtx->priv_data, "qp", config.crf, 0);
+			codecCtx->bit_rate = 0;
+		}
+	} else if (codecName.find("videotoolbox") != std::string::npos) {
+		// VideoToolbox specific options
+		av_opt_set(codecCtx->priv_data, "profile", "main", 0);
+		av_opt_set_int(codecCtx->priv_data, "allow_sw", 1, 0); // Allow software fallback
+		
+		if (config.crf >= 0 && config.bitrate <= 0) {
+			// VideoToolbox uses quality scale 0.0-1.0 (lower is better)
+			double quality = 1.0 - (config.crf / 51.0); // Convert CRF to quality
+			av_opt_set_double(codecCtx->priv_data, "quality", quality, 0);
+			codecCtx->bit_rate = 0;
 		}
 	}
 	
@@ -205,11 +297,12 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 		throw std::runtime_error("Failed to allocate conversion frame buffer");
 	}
 	
-	utils::Logger::info("Encoder initialized: {}x{} @ {} fps, codec: {}, threads: {}",
+	utils::Logger::info("Encoder initialized: {}x{} @ {} fps, codec: {}, threads: {}, hardware: {}",
 		config.width, config.height,
 		(double)config.frameRate.num / config.frameRate.den,
-		config.codec,
-		codecCtx->thread_count == 0 ? "auto" : std::to_string(codecCtx->thread_count));
+		codecName,
+		codecCtx->thread_count == 0 ? "auto" : std::to_string(codecCtx->thread_count),
+		usingHardware ? "yes" : "no");
 }
 
 void FFmpegEncoder::cleanup() {
@@ -222,12 +315,20 @@ void FFmpegEncoder::cleanup() {
 		av_frame_free(&convertedFrame);
 	}
 	
+	if (hwFrame) {
+		av_frame_free(&hwFrame);
+	}
+	
 	if (packet) {
 		FFmpegCompat::freePacket(&packet);
 	}
 	
 	if (codecCtx) {
 		avcodec_free_context(&codecCtx);
+	}
+	
+	if (hwDeviceCtx) {
+		av_buffer_unref(&hwDeviceCtx);
 	}
 	
 	if (formatCtx) {

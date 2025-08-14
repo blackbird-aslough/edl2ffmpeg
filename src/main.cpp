@@ -3,6 +3,7 @@
 #include "compositor/FrameCompositor.h"
 #include "media/FFmpegDecoder.h"
 #include "media/FFmpegEncoder.h"
+#include "media/HardwareAcceleration.h"
 #include "utils/Logger.h"
 
 extern "C" {
@@ -26,6 +27,10 @@ void printUsage(const char* programName) {
 	std::cout << "  -b, --bitrate <bitrate>  Video bitrate (default: 446464 / 436Ki)\n";
 	std::cout << "  -p, --preset <preset>    Encoder preset (default: faster)\n";
 	std::cout << "  --crf <value>            Use Constant Rate Factor mode (disables bitrate)\n";
+	std::cout << "  --hw-accel <type>        Hardware acceleration (auto, none, nvenc, vaapi, videotoolbox)\n";
+	std::cout << "  --hw-device <device>     Hardware device index (default: 0)\n";
+	std::cout << "  --hw-decode              Enable hardware decoding (default: auto)\n";
+	std::cout << "  --hw-encode              Enable hardware encoding (default: auto)\n";
 	std::cout << "  -v, --verbose            Enable verbose logging\n";
 	std::cout << "  -q, --quiet              Suppress all non-error output\n";
 	std::cout << "  -h, --help               Show this help message\n";
@@ -33,6 +38,8 @@ void printUsage(const char* programName) {
 	std::cout << "  " << programName << " input.json output.mp4\n";
 	std::cout << "  " << programName << " input.json output.mp4 --codec libx265 --crf 28\n";
 	std::cout << "  " << programName << " input.json output.mp4 -b 8000000 -p fast\n";
+	std::cout << "  " << programName << " input.json output.mp4 --hw-accel nvenc --hw-encode\n";
+	std::cout << "  " << programName << " input.json output.mp4 --hw-accel auto --hw-encode --hw-decode\n";
 }
 
 struct Options {
@@ -44,6 +51,12 @@ struct Options {
 	int crf = 23;
 	bool verbose = false;
 	bool quiet = false;
+	
+	// Hardware acceleration options
+	std::string hwAccelType = "auto";
+	int hwDevice = 0;
+	bool hwDecode = false;
+	bool hwEncode = false;
 };
 
 Options parseCommandLine(int argc, char* argv[]) {
@@ -76,6 +89,14 @@ Options parseCommandLine(int argc, char* argv[]) {
 		} else if (arg == "--crf" && i + 1 < argc) {
 			opts.crf = std::stoi(argv[++i]);
 			opts.bitrate = 0; // Enable CRF mode by setting bitrate to 0
+		} else if (arg == "--hw-accel" && i + 1 < argc) {
+			opts.hwAccelType = argv[++i];
+		} else if (arg == "--hw-device" && i + 1 < argc) {
+			opts.hwDevice = std::stoi(argv[++i]);
+		} else if (arg == "--hw-decode") {
+			opts.hwDecode = true;
+		} else if (arg == "--hw-encode") {
+			opts.hwEncode = true;
 		} else {
 			std::cerr << "Unknown option: " << arg << "\n";
 			printUsage(argv[0]);
@@ -169,7 +190,14 @@ int main(int argc, char* argv[]) {
 				utils::Logger::info("Loading media: {} -> {}", uri, mediaPath);
 				
 				try {
-					decoders[uri] = std::make_unique<media::FFmpegDecoder>(mediaPath);
+					// Configure decoder with hardware acceleration if requested
+					media::FFmpegDecoder::Config decoderConfig;
+					decoderConfig.useHardwareDecoder = opts.hwDecode;
+					decoderConfig.hwConfig.type = media::HardwareAcceleration::stringToHWAccelType(opts.hwAccelType);
+					decoderConfig.hwConfig.deviceIndex = opts.hwDevice;
+					decoderConfig.hwConfig.allowFallback = true;
+					
+					decoders[uri] = std::make_unique<media::FFmpegDecoder>(mediaPath, decoderConfig);
 				} catch (const std::exception& e) {
 					utils::Logger::error("Failed to load media {}: {}", mediaPath, e.what());
 					throw;
@@ -186,6 +214,10 @@ int main(int argc, char* argv[]) {
 		encoderConfig.bitrate = opts.bitrate;
 		encoderConfig.preset = opts.preset;
 		encoderConfig.crf = opts.crf;
+		encoderConfig.useHardwareEncoder = opts.hwEncode;
+		encoderConfig.hwConfig.type = media::HardwareAcceleration::stringToHWAccelType(opts.hwAccelType);
+		encoderConfig.hwConfig.deviceIndex = opts.hwDevice;
+		encoderConfig.hwConfig.allowFallback = true;
 		
 		utils::Logger::info("Creating output file: {}", opts.outputFile);
 		media::FFmpegEncoder encoder(opts.outputFile, encoderConfig);
