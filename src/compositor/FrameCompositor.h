@@ -28,8 +28,12 @@ private:
 	void applyFade(AVFrame* frame, float fade);
 	void applyEffects(AVFrame* frame, const std::vector<Effect>& effects);
 	void applyBrightness(AVFrame* frame, float strength);
+	void applyBrightnessLinear(AVFrame* frame, const std::vector<LinearMapping>& mapping);
+	void applyBrightnessLUT(AVFrame* frame, const uint8_t* lut);
 	void applyContrast(AVFrame* frame, float strength);
 	void fillWithColor(AVFrame* frame, float r, float g, float b);
+	float linearInterpolate(float input, const std::vector<LinearMapping>& mapping);
+	void buildBrightnessLUT(uint8_t* lut, const std::vector<LinearMapping>& mapping);
 	
 	int width;
 	int height;

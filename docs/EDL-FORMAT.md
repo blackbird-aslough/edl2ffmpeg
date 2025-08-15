@@ -110,15 +110,34 @@ Sources define what content to play:
 ```
 
 ### Effects Source
+
+Effects sources apply visual effects like brightness, contrast, or color adjustments. They can apply filters either to the entire frame or within/outside a mask region:
+
 ```json
 {
 	"type": string,       // Effect type (e.g., "highlight")
-	"in": number,
-	"out": number,
-	"insideMaskFilters": [...],   // Filters inside mask
-	"outsideMaskFilters": [...]   // Filters outside mask
+	"in": number,         // Start time in source
+	"out": number,        // End time in source
+	"insideMaskFilters": [...],   // Filters applied inside mask region
+	"outsideMaskFilters": [...],  // Filters applied outside mask region
+	
+	// Optional mask/shape control:
+	"controlPoints": [    // Define mask shape and position over time
+		{
+			"point": number,       // Time offset
+			"panx": number,        // Pan X (-1 to 1)
+			"pany": number,        // Pan Y (-1 to 1)
+			"zoomx": number,       // Zoom X factor
+			"zoomy": number,       // Zoom Y factor
+			"rotate": number,      // Rotation in degrees
+			"shape": number        // Shape parameter (1 = rectangle)
+		}
+	],
+	"interpolation": "linear"  // How to interpolate between control points
 }
 ```
+
+**Note:** When applying effects to the entire frame without masking, use empty `controlPoints` or omit mask-related properties. The filters in `insideMaskFilters` will apply to the entire frame.
 
 ## Audio Control Points
 
@@ -139,23 +158,51 @@ For audio level and panning:
 
 ## Filters
 
-Filters modify color/brightness:
+Filters modify color/brightness and are typically used within effect sources:
+
+### Brightness Filter
+
+The brightness filter uses a linear transfer function to map input luminance to output luminance:
 
 ```json
 {
-	"type": "brightness" | "saturation" | "white" | "y" | "u" | "v",
+	"type": "brightness",
+	"controlPoints": [
+		{
+			"point": number,       // Time offset (0.0 = start of effect)
+			"linear": [
+				{"src": 0.0, "dst": number},  // Maps black input to output level
+				{"src": 1.0, "dst": number}   // Maps white input to output level
+			]
+		}
+	]
+}
+```
 
-	// For constant filters:
-	"linear": [
-		{"src": number, "dst": number}
-	],
+**Brightness mapping examples:**
+- Normal (no change): `[{"src": 0.0, "dst": 0.0}, {"src": 1.0, "dst": 1.0}]`
+- 50% brightness increase: `[{"src": 0.0, "dst": 0.5}, {"src": 1.0, "dst": 1.0}]`
+- 20% brightness increase: `[{"src": 0.0, "dst": 0.2}, {"src": 1.0, "dst": 1.0}]`
+- Inverted: `[{"src": 0.0, "dst": 1.0}, {"src": 1.0, "dst": 0.0}]`
+- 50% dimmer: `[{"src": 0.0, "dst": 0.0}, {"src": 1.0, "dst": 0.5}]`
+
+### Other Filters
+
+```json
+{
+	"type": "saturation" | "white" | "y" | "u" | "v",
 
 	// For white filter:
 	"u": number,
 	"v": number,
 
 	// For varying filters:
-	"controlPoints": [...]
+	"controlPoints": [...],
+
+	// For constant filters:
+	"linear": [
+		{"src": number, "dst": number}
+	]
 }
 ```
 
@@ -216,6 +263,65 @@ Timing control for effects:
 			}
 		]
 	}
+}
+```
+
+## Brightness Effect Example
+
+A complete example applying a 50% brightness increase to a video clip:
+
+```json
+{
+	"fps": 30,
+	"width": 1920,
+	"height": 1080,
+	"clips": [
+		{
+			"in": 0.0,
+			"out": 5.0,
+			"track": {
+				"type": "video",
+				"number": 1,
+				"subtype": "effects",
+				"subnumber": 1
+			},
+			"source": {
+				"type": "highlight",
+				"in": 0.0,
+				"out": 5.0,
+				"insideMaskFilters": [
+					{
+						"type": "brightness",
+						"controlPoints": [
+							{
+								"point": 0.0,
+								"linear": [
+									{"src": 0.0, "dst": 0.5},
+									{"src": 1.0, "dst": 1.0}
+								]
+							}
+						]
+					}
+				],
+				"outsideMaskFilters": [],
+				"interpolation": "linear"
+			}
+		},
+		{
+			"in": 0.0,
+			"out": 5.0,
+			"track": {
+				"type": "video",
+				"number": 1
+			},
+			"source": {
+				"uri": "video.mp4",
+				"trackId": "V1",
+				"in": 0.0,
+				"out": 5.0
+			}
+		}
+	]
 }
 ```
 
@@ -296,6 +402,62 @@ A simple EDL with video, audio, subtitles, and zoom effect:
 - The `sync` property links related clips (e.g., video and audio from same source)
 - Color values use AYUV format (Alpha, Y luminance, U and V chrominance)
 - Transform coordinates use normalized values (-1 to 1 for pan)
+
+## Implementation Status in edl2ffmpeg
+
+**Currently Implemented:**
+- Basic video/audio clip playback
+- Fade in/out transitions
+- Simple brightness and contrast adjustments (applied directly to clips)
+
+### Working Brightness Example for Current Implementation
+
+The current edl2ffmpeg uses a simplified effects model where brightness is applied directly to clips:
+
+```json
+{
+	"fps": 30,
+	"width": 1920,
+	"height": 1080,
+	"clips": [
+		{
+			"in": 0.0,
+			"out": 5.0,
+			"track": {
+				"type": "video",
+				"number": 1
+			},
+			"source": {
+				"uri": "Test_Live_1906_High.mxf",
+				"trackId": "V1",
+				"in": 0.0,
+				"out": 5.0
+			},
+			"effects": [
+				{
+					"type": "brightness",
+					"strength": 1.5  // 1.0 = normal, 1.5 = +50% brightness
+				}
+			]
+		}
+	]
+}
+```
+
+**Note:** The current implementation uses a `strength` value where:
+- 1.0 = normal brightness
+- 1.5 = +50% brightness 
+- 0.5 = -50% brightness
+
+This is different from the linear transfer function model described above, which will be implemented in future releases.
+
+**Not Yet Implemented:**
+- Effects sources with type "highlight"
+- Linear transfer function brightness model
+- Mask-based filtering (insideMaskFilters/outsideMaskFilters)
+- Complex control point interpolation
+- Most transition types
+- Text/subtitle tracks
 
 ## TypeScript Types
 

@@ -1,0 +1,52 @@
+{
+	"fps": 30,
+	"width": 1920,
+	"height": 1080,
+	"clips": [
+		{
+			"in": 0.0,
+			"out": 5.0,
+			"track": {
+				"type": "video",
+				"number": 1,
+				"subtype": "effects",
+				"subnumber": 1
+			},
+			"source": {
+				"type": "highlight",
+				"in": 0.0,
+				"out": 5.0,
+				"insideMaskFilters": [
+					{
+						"type": "brightness",
+						"controlPoints": [
+							{
+								"point": 0.0,
+								"linear": [
+									{"src": 0.0, "dst": 0.5},
+									{"src": 1.0, "dst": 1.0}
+								]
+							}
+						]
+					}
+				],
+				"outsideMaskFilters": [],
+				"interpolation": "linear"
+			}
+		},
+		{
+			"in": 0.0,
+			"out": 5.0,
+			"track": {
+				"type": "video",
+				"number": 1
+			},
+			"source": {
+				"uri": "Test_Live_1906_High.mxf",
+				"trackId": "V1",
+				"in": 0.0,
+				"out": 5.0
+			}
+		}
+	]
+}

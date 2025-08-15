@@ -17,6 +17,7 @@ extern "C" {
 #include <filesystem>
 #include <chrono>
 #include <iomanip>
+#include <variant>
 
 namespace fs = std::filesystem;
 
@@ -222,7 +223,13 @@ int main(int argc, char* argv[]) {
 				continue;
 			}
 			
-			const std::string& uri = clip.source.uri;
+			// Check if this is a media source (skip effect sources)
+			if (!std::holds_alternative<edl::MediaSource>(clip.source)) {
+				continue;
+			}
+			
+			const auto& mediaSource = std::get<edl::MediaSource>(clip.source);
+			const std::string& uri = mediaSource.uri;
 			if (decoders.find(uri) == decoders.end()) {
 				std::string mediaPath = getMediaPath(uri, opts.edlFile);
 				utils::Logger::info("Loading media: {} -> {}", uri, mediaPath);

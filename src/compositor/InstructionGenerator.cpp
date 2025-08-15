@@ -2,6 +2,7 @@
 #include "utils/Logger.h"
 #include <algorithm>
 #include <cmath>
+#include <variant>
 
 namespace compositor {
 
@@ -67,7 +68,15 @@ CompositorInstruction InstructionGenerator::getInstructionForFrame(int frameNumb
 		return instruction;
 	}
 	
-	return createInstruction(*clip, frameNumber);
+	auto instruction = createInstruction(*clip, frameNumber);
+	
+	// Look for effect clips on the same track
+	const edl::Clip* effectClip = findEffectClipAtFrame(frameNumber, clip->track.number);
+	if (effectClip) {
+		applyEffectClip(instruction, *effectClip, frameNumber);
+	}
+	
+	return instruction;
 }
 
 CompositorInstruction InstructionGenerator::createInstruction(const edl::Clip& clip,
@@ -76,7 +85,16 @@ CompositorInstruction InstructionGenerator::createInstruction(const edl::Clip& c
 	CompositorInstruction instruction;
 	instruction.type = CompositorInstruction::DrawFrame;
 	instruction.trackNumber = clip.track.number;
-	instruction.uri = clip.source.uri;
+	
+	// Get URI from MediaSource if available
+	if (std::holds_alternative<edl::MediaSource>(clip.source)) {
+		const auto& mediaSource = std::get<edl::MediaSource>(clip.source);
+		instruction.uri = mediaSource.uri;
+		instruction.flip = mediaSource.flip;
+	} else {
+		// Effect source - no URI
+		instruction.uri = "";
+	}
 	
 	// Calculate source frame number
 	instruction.sourceFrameNumber = getSourceFrameNumber(clip, frameNumber);
@@ -87,7 +105,6 @@ CompositorInstruction InstructionGenerator::createInstruction(const edl::Clip& c
 	instruction.zoomX = clip.motion.zoomX;
 	instruction.zoomY = clip.motion.zoomY;
 	instruction.rotation = clip.motion.rotation;
-	instruction.flip = clip.source.flip;
 	
 	// Calculate fade
 	double frameTime = frameToTime(frameNumber);
@@ -124,6 +141,22 @@ CompositorInstruction InstructionGenerator::createInstruction(const edl::Clip& c
 		}
 	}
 	
+	// Handle simple inline effects (backward compatibility)
+	for (const auto& effect : clip.effects) {
+		Effect compEffect;
+		if (effect.type == "brightness") {
+			compEffect.type = Effect::Brightness;
+			compEffect.strength = effect.strength;
+		} else if (effect.type == "contrast") {
+			compEffect.type = Effect::Contrast;
+			compEffect.strength = effect.strength;
+		} else if (effect.type == "saturation") {
+			compEffect.type = Effect::Saturation;
+			compEffect.strength = effect.strength;
+		}
+		instruction.effects.push_back(compEffect);
+	}
+	
 	return instruction;
 }
 
@@ -135,6 +168,7 @@ const edl::Clip* InstructionGenerator::findClipAtFrame(int frameNumber,
 	for (const auto& clip : edl.clips) {
 		if (clip.track.type == edl::Track::Video &&
 			clip.track.number == trackNumber &&
+			clip.track.subtype != "effects" &&  // Skip effect clips
 			frameTime >= clip.in &&
 			frameTime < clip.out) {
 			return &clip;
@@ -153,13 +187,18 @@ int64_t InstructionGenerator::getSourceFrameNumber(const edl::Clip& clip,
 	// Calculate position within the clip
 	double positionInClip = timelineTime - clip.in;
 	
-	// Calculate source time
-	double sourceTime = clip.source.in + positionInClip;
+	// Check if source is a MediaSource (only media sources have frame numbers)
+	if (std::holds_alternative<edl::MediaSource>(clip.source)) {
+		const auto& mediaSource = std::get<edl::MediaSource>(clip.source);
+		// Calculate source time
+		double sourceTime = mediaSource.in + positionInClip;
+		// Convert to source frame number
+		// If source has different fps, use it; otherwise use EDL fps
+		int sourceFps = mediaSource.fps > 0 ? mediaSource.fps : edl.fps;
+		return static_cast<int64_t>(sourceTime * sourceFps);
+	}
 	
-	// Convert to source frame number
-	// If source has different fps, use it; otherwise use EDL fps
-	int sourceFps = clip.source.fps > 0 ? clip.source.fps : edl.fps;
-	return static_cast<int64_t>(sourceTime * sourceFps);
+	return 0;  // Effect sources don't have frame numbers
 }
 
 double InstructionGenerator::frameToTime(int frameNumber) const {
@@ -168,6 +207,113 @@ double InstructionGenerator::frameToTime(int frameNumber) const {
 
 int InstructionGenerator::timeToFrame(double time) const {
 	return static_cast<int>(std::round(time * edl.fps));
+}
+
+const edl::Clip* InstructionGenerator::findEffectClipAtFrame(int frameNumber,
+	int trackNumber) const {
+	
+	double frameTime = frameToTime(frameNumber);
+	
+	for (const auto& clip : edl.clips) {
+		if (clip.track.type == edl::Track::Video &&
+			clip.track.number == trackNumber &&
+			clip.track.subtype == "effects" &&
+			frameTime >= clip.in &&
+			frameTime < clip.out) {
+			return &clip;
+		}
+	}
+	
+	return nullptr;
+}
+
+void InstructionGenerator::applyEffectClip(CompositorInstruction& instruction,
+	const edl::Clip& effectClip, int frameNumber) {
+	
+	// Check if source is an EffectSource
+	if (!std::holds_alternative<edl::EffectSource>(effectClip.source)) {
+		return;
+	}
+	
+	const auto& effectSource = std::get<edl::EffectSource>(effectClip.source);
+	double frameTime = frameToTime(frameNumber);
+	double timeInClip = frameTime - effectClip.in;
+	
+	// Process insideMaskFilters (for now, apply to entire frame)
+	for (const auto& filter : effectSource.insideMaskFilters) {
+		if (filter.type == "brightness") {
+			Effect effect;
+			effect.type = Effect::Brightness;
+			effect.useLinearMapping = true;
+			effect.linearMapping = interpolateLinearMapping(filter, timeInClip);
+			instruction.effects.push_back(effect);
+		}
+		// Add other filter types as needed
+	}
+}
+
+std::vector<LinearMapping> InstructionGenerator::interpolateLinearMapping(
+	const edl::Filter& filter, double timeInClip) {
+	
+	if (filter.controlPoints.empty()) {
+		return {};
+	}
+	
+	// Find the appropriate control points for this time
+	const edl::FilterControlPoint* prevCP = nullptr;
+	const edl::FilterControlPoint* nextCP = nullptr;
+	
+	for (const auto& cp : filter.controlPoints) {
+		if (cp.point <= timeInClip) {
+			prevCP = &cp;
+		} else if (!nextCP) {
+			nextCP = &cp;
+			break;
+		}
+	}
+	
+	// If we only have one control point or time is before/after all points
+	if (!prevCP && !nextCP) {
+		return {};
+	} else if (!prevCP) {
+		// Use the first control point
+		std::vector<LinearMapping> result;
+		for (const auto& mapping : nextCP->linear) {
+			result.push_back({mapping.src, mapping.dst});
+		}
+		return result;
+	} else if (!nextCP) {
+		// Use the last control point
+		std::vector<LinearMapping> result;
+		for (const auto& mapping : prevCP->linear) {
+			result.push_back({mapping.src, mapping.dst});
+		}
+		return result;
+	}
+	
+	// Interpolate between two control points
+	double t = (timeInClip - prevCP->point) / (nextCP->point - prevCP->point);
+	
+	// For now, use linear interpolation of the dst values
+	// Ensure both control points have the same number of mappings
+	if (prevCP->linear.size() != nextCP->linear.size()) {
+		// Use the previous control point if sizes don't match
+		std::vector<LinearMapping> result;
+		for (const auto& mapping : prevCP->linear) {
+			result.push_back({mapping.src, mapping.dst});
+		}
+		return result;
+	}
+	
+	std::vector<LinearMapping> result;
+	for (size_t i = 0; i < prevCP->linear.size(); ++i) {
+		LinearMapping mapping;
+		mapping.src = prevCP->linear[i].src;  // src values should be the same
+		mapping.dst = prevCP->linear[i].dst * (1.0 - t) + nextCP->linear[i].dst * t;
+		result.push_back(mapping);
+	}
+	
+	return result;
 }
 
 } // namespace compositor

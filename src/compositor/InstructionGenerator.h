@@ -41,6 +41,9 @@ private:
 	int64_t getSourceFrameNumber(const edl::Clip& clip, int timelineFrame) const;
 	CompositorInstruction createInstruction(const edl::Clip& clip, int frameNumber);
 	const edl::Clip* findClipAtFrame(int frameNumber, int trackNumber = 1) const;
+	const edl::Clip* findEffectClipAtFrame(int frameNumber, int trackNumber = 1) const;
+	void applyEffectClip(CompositorInstruction& instruction, const edl::Clip& effectClip, int frameNumber);
+	std::vector<LinearMapping> interpolateLinearMapping(const edl::Filter& filter, double timeInClip);
 	
 	edl::EDL edl;
 	int totalFrames;

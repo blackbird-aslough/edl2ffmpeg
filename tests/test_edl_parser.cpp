@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <filesystem>
+#include <variant>
 
 namespace fs = std::filesystem;
 
@@ -24,10 +25,13 @@ void testSimpleEDL() {
 		assert(edl.clips.size() == 1);
 		
 		const auto& clip = edl.clips[0];
-		assert(clip.source.uri == "test_video.mp4");
-		assert(clip.source.trackId == "V1");
-		assert(clip.source.in == 0);
-		assert(clip.source.out == 10);
+		// Check that it's a media source
+		assert(std::holds_alternative<edl::MediaSource>(clip.source));
+		const auto& mediaSource = std::get<edl::MediaSource>(clip.source);
+		assert(mediaSource.uri == "test_video.mp4");
+		assert(mediaSource.trackId == "V1");
+		assert(mediaSource.in == 0);
+		assert(mediaSource.out == 10);
 		assert(clip.in == 0);
 		assert(clip.out == 10);
 		assert(clip.track.type == edl::Track::Video);
@@ -59,13 +63,17 @@ void testComplexEDL() {
 		
 		// Test first clip with fades
 		const auto& clip1 = edl.clips[0];
-		assert(clip1.source.uri == "clip1.mp4");
+		assert(std::holds_alternative<edl::MediaSource>(clip1.source));
+		const auto& mediaSource1 = std::get<edl::MediaSource>(clip1.source);
+		assert(mediaSource1.uri == "clip1.mp4");
 		assert(clip1.topFade == 1.0f);
 		assert(clip1.tailFade == 0.5f);
 		
 		// Test second clip with motion and transition
 		const auto& clip2 = edl.clips[1];
-		assert(clip2.source.uri == "clip2.mp4");
+		assert(std::holds_alternative<edl::MediaSource>(clip2.source));
+		const auto& mediaSource2 = std::get<edl::MediaSource>(clip2.source);
+		assert(mediaSource2.uri == "clip2.mp4");
 		assert(clip2.motion.panX == 0.1f);
 		assert(clip2.motion.panY == -0.1f);
 		assert(clip2.motion.zoomX == 1.2f);
@@ -76,7 +84,9 @@ void testComplexEDL() {
 		
 		// Test third clip
 		const auto& clip3 = edl.clips[2];
-		assert(clip3.source.uri == "clip3.mp4");
+		assert(std::holds_alternative<edl::MediaSource>(clip3.source));
+		const auto& mediaSource3 = std::get<edl::MediaSource>(clip3.source);
+		assert(mediaSource3.uri == "clip3.mp4");
 		assert(clip3.tailFade == 2.0f);
 		
 		std::cout << "✓ Complex EDL test passed" << std::endl;
@@ -121,8 +131,10 @@ void testInlineJSON() {
 		assert(edl.clips.size() == 1);
 		
 		const auto& clip = edl.clips[0];
-		assert(clip.source.in == 5.5);
-		assert(clip.source.out == 15.5);
+		assert(std::holds_alternative<edl::MediaSource>(clip.source));
+		const auto& mediaSource = std::get<edl::MediaSource>(clip.source);
+		assert(mediaSource.in == 5.5);
+		assert(mediaSource.out == 15.5);
 		
 		std::cout << "✓ Inline JSON test passed" << std::endl;
 		

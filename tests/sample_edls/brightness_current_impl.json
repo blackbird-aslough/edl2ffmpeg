@@ -1,0 +1,28 @@
+{
+	"fps": 30,
+	"width": 1920,
+	"height": 1080,
+	"clips": [
+		{
+			"in": 0.0,
+			"out": 5.0,
+			"track": {
+				"type": "video",
+				"number": 1
+			},
+			"source": {
+				"uri": "Test_Live_1906_High.mxf",
+				"trackId": "V1",
+				"in": 0.0,
+				"out": 5.0,
+				"fps": 30
+			},
+			"effects": [
+				{
+					"type": "brightness",
+					"strength": 1.5
+				}
+			]
+		}
+	]
+}

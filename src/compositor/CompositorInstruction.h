@@ -5,6 +5,12 @@
 
 namespace compositor {
 
+// Linear mapping for transfer functions (brightness, etc.)
+struct LinearMapping {
+	float src = 0.0f;   // Input value (0.0 to 1.0)
+	float dst = 0.0f;   // Output value (0.0 to 1.0)
+};
+
 struct Effect {
 	enum Type {
 		Brightness,
@@ -15,8 +21,12 @@ struct Effect {
 	};
 	
 	Type type;
-	float strength = 1.0f;
+	float strength = 1.0f;  // For simple effects (backward compatibility)
 	std::vector<float> parameters;
+	
+	// For linear transfer function effects
+	std::vector<LinearMapping> linearMapping;  // Transfer function
+	bool useLinearMapping = false;             // Whether to use linear mapping
 };
 
 struct TransitionInfo {
