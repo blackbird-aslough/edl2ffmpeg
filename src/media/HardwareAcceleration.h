@@ -129,6 +129,12 @@ public:
 	static std::string hwAccelTypeToString(HWAccelType type);
 	
 	/**
+	 * Initialize hardware context with logging
+	 * Returns nullptr if initialization fails
+	 */
+	static AVBufferRef* initializeHardwareContext(HWAccelType type, int deviceIndex, const std::string& purpose);
+	
+	/**
 	 * Convert string to HWAccelType
 	 */
 	static HWAccelType stringToHWAccelType(const std::string& str);

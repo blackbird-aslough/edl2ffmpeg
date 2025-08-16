@@ -1,5 +1,6 @@
 #include "compositor/FrameCompositor.h"
 #include "utils/Logger.h"
+#include "utils/PixelFormatUtils.h"
 #include <cmath>
 #include <algorithm>
 #include <cstring>
@@ -107,8 +108,7 @@ std::shared_ptr<AVFrame> FrameCompositor::generateColorFrame(
 
 void FrameCompositor::fillWithColor(AVFrame* frame, float r, float g, float b) {
 	// Convert RGB to YUV for YUV formats
-	if (format == AV_PIX_FMT_YUV420P || format == AV_PIX_FMT_YUV422P ||
-		format == AV_PIX_FMT_YUV444P) {
+	if (utils::PixelFormatUtils::isPlanarYUVFormat(format)) {
 		
 		// Clamp RGB values to [0,1] range before conversion
 		float r_clamped = std::max(0.0f, std::min(1.0f, r));
@@ -172,8 +172,7 @@ void FrameCompositor::applyFade(AVFrame* frame, float fade) {
 	}
 	
 	// Apply fade to Y plane (luminance)
-	if (format == AV_PIX_FMT_YUV420P || format == AV_PIX_FMT_YUV422P ||
-		format == AV_PIX_FMT_YUV444P) {
+	if (utils::PixelFormatUtils::isPlanarYUVFormat(format)) {
 		
 		for (int row = 0; row < frame->height; ++row) {
 			uint8_t* data = frame->data[0] + row * frame->linesize[0];
@@ -234,8 +233,7 @@ void FrameCompositor::applyBrightness(AVFrame* frame, float strength) {
 	// Brightness adjustment using LUT for speed
 	// strength: 0.5 = -50% brightness, 1.0 = normal, 1.5 = +50% brightness
 	
-	if (format == AV_PIX_FMT_YUV420P || format == AV_PIX_FMT_YUV422P ||
-		format == AV_PIX_FMT_YUV444P) {
+	if (utils::PixelFormatUtils::isPlanarYUVFormat(format)) {
 		
 		// Build LUT for simple brightness adjustment
 		uint8_t lut[256];
@@ -254,8 +252,7 @@ void FrameCompositor::applyContrast(AVFrame* frame, float strength) {
 	// Contrast adjustment using LUT for speed
 	// strength: 0.5 = low contrast, 1.0 = normal, 1.5 = high contrast
 	
-	if (format == AV_PIX_FMT_YUV420P || format == AV_PIX_FMT_YUV422P ||
-		format == AV_PIX_FMT_YUV444P) {
+	if (utils::PixelFormatUtils::isPlanarYUVFormat(format)) {
 		
 		// Build LUT for contrast adjustment
 		uint8_t lut[256];

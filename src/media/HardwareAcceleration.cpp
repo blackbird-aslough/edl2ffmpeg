@@ -357,6 +357,25 @@ HWAccelType HardwareAcceleration::stringToHWAccelType(const std::string& str) {
 	return HWAccelType::None;
 }
 
+AVBufferRef* HardwareAcceleration::initializeHardwareContext(HWAccelType type, int deviceIndex, const std::string& purpose) {
+	// Suppress FFmpeg error messages during hardware setup
+	int oldLogLevel = av_log_get_level();
+	av_log_set_level(AV_LOG_ERROR);
+	
+	AVBufferRef* hwDeviceCtx = createHWDeviceContext(type, deviceIndex);
+	
+	// Restore log level
+	av_log_set_level(oldLogLevel);
+	
+	if (hwDeviceCtx) {
+		utils::Logger::info("Initialized hardware {} context: {}", purpose, hwAccelTypeToString(type));
+	} else {
+		utils::Logger::warn("Failed to create hardware {} context, falling back to software", purpose);
+	}
+	
+	return hwDeviceCtx;
+}
+
 // Platform-specific detection implementations
 
 std::vector<HWDevice> HardwareAcceleration::detectNVENC() {
