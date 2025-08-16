@@ -37,6 +37,8 @@ FFmpegDecoder::FFmpegDecoder(FFmpegDecoder&& other) noexcept
 	, codecCtx(other.codecCtx)
 	, packet(other.packet)
 	, swsCtx(other.swsCtx)
+	, hwDeviceCtx(other.hwDeviceCtx)
+	, usingHardware(other.usingHardware)
 	, videoStreamIndex(other.videoStreamIndex)
 	, width(other.width)
 	, height(other.height)
@@ -51,6 +53,8 @@ FFmpegDecoder::FFmpegDecoder(FFmpegDecoder&& other) noexcept
 	other.codecCtx = nullptr;
 	other.packet = nullptr;
 	other.swsCtx = nullptr;
+	other.hwDeviceCtx = nullptr;
+	other.usingHardware = false;
 }
 
 FFmpegDecoder& FFmpegDecoder::operator=(FFmpegDecoder&& other) noexcept {
@@ -61,6 +65,8 @@ FFmpegDecoder& FFmpegDecoder::operator=(FFmpegDecoder&& other) noexcept {
 		codecCtx = other.codecCtx;
 		packet = other.packet;
 		swsCtx = other.swsCtx;
+		hwDeviceCtx = other.hwDeviceCtx;
+		usingHardware = other.usingHardware;
 		videoStreamIndex = other.videoStreamIndex;
 		width = other.width;
 		height = other.height;
@@ -75,6 +81,8 @@ FFmpegDecoder& FFmpegDecoder::operator=(FFmpegDecoder&& other) noexcept {
 		other.codecCtx = nullptr;
 		other.packet = nullptr;
 		other.swsCtx = nullptr;
+		other.hwDeviceCtx = nullptr;
+		other.usingHardware = false;
 	}
 	return *this;
 }

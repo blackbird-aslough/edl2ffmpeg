@@ -32,6 +32,9 @@ FFmpegEncoder::FFmpegEncoder(FFmpegEncoder&& other) noexcept
 	, videoStream(other.videoStream)
 	, packet(other.packet)
 	, swsCtx(other.swsCtx)
+	, hwDeviceCtx(other.hwDeviceCtx)
+	, hwFrame(other.hwFrame)
+	, usingHardware(other.usingHardware)
 	, convertedFrame(other.convertedFrame)
 	, config(other.config)
 	, frameCount(other.frameCount)
@@ -43,6 +46,9 @@ FFmpegEncoder::FFmpegEncoder(FFmpegEncoder&& other) noexcept
 	other.videoStream = nullptr;
 	other.packet = nullptr;
 	other.swsCtx = nullptr;
+	other.hwDeviceCtx = nullptr;
+	other.hwFrame = nullptr;
+	other.usingHardware = false;
 	other.convertedFrame = nullptr;
 }
 
@@ -55,6 +61,9 @@ FFmpegEncoder& FFmpegEncoder::operator=(FFmpegEncoder&& other) noexcept {
 		videoStream = other.videoStream;
 		packet = other.packet;
 		swsCtx = other.swsCtx;
+		hwDeviceCtx = other.hwDeviceCtx;
+		hwFrame = other.hwFrame;
+		usingHardware = other.usingHardware;
 		convertedFrame = other.convertedFrame;
 		config = other.config;
 		frameCount = other.frameCount;
@@ -66,6 +75,9 @@ FFmpegEncoder& FFmpegEncoder::operator=(FFmpegEncoder&& other) noexcept {
 		other.videoStream = nullptr;
 		other.packet = nullptr;
 		other.swsCtx = nullptr;
+		other.hwDeviceCtx = nullptr;
+		other.hwFrame = nullptr;
+		other.usingHardware = false;
 		other.convertedFrame = nullptr;
 	}
 	return *this;

@@ -84,16 +84,46 @@ Options parseCommandLine(int argc, char* argv[]) {
 		} else if ((arg == "-c" || arg == "--codec") && i + 1 < argc) {
 			opts.codec = argv[++i];
 		} else if ((arg == "-b" || arg == "--bitrate") && i + 1 < argc) {
-			opts.bitrate = std::stoi(argv[++i]);
+			try {
+				opts.bitrate = std::stoi(argv[++i]);
+			} catch (const std::invalid_argument& e) {
+				std::cerr << "Error: Invalid bitrate value: " << argv[i] << "
+";
+				return 1;
+			} catch (const std::out_of_range& e) {
+				std::cerr << "Error: Bitrate value out of range: " << argv[i] << "
+";
+				return 1;
+			}
 		} else if ((arg == "-p" || arg == "--preset") && i + 1 < argc) {
 			opts.preset = argv[++i];
 		} else if (arg == "--crf" && i + 1 < argc) {
-			opts.crf = std::stoi(argv[++i]);
-			opts.bitrate = 0; // Enable CRF mode by setting bitrate to 0
+			try {
+				opts.crf = std::stoi(argv[++i]);
+				opts.bitrate = 0; // Enable CRF mode by setting bitrate to 0
+			} catch (const std::invalid_argument& e) {
+				std::cerr << "Error: Invalid CRF value: " << argv[i] << "
+";
+				return 1;
+			} catch (const std::out_of_range& e) {
+				std::cerr << "Error: CRF value out of range: " << argv[i] << "
+";
+				return 1;
+			}
 		} else if (arg == "--hw-accel" && i + 1 < argc) {
 			opts.hwAccelType = argv[++i];
 		} else if (arg == "--hw-device" && i + 1 < argc) {
-			opts.hwDevice = std::stoi(argv[++i]);
+			try {
+				opts.hwDevice = std::stoi(argv[++i]);
+			} catch (const std::invalid_argument& e) {
+				std::cerr << "Error: Invalid hardware device index: " << argv[i] << "
+";
+				return 1;
+			} catch (const std::out_of_range& e) {
+				std::cerr << "Error: Hardware device index out of range: " << argv[i] << "
+";
+				return 1;
+			}
 		} else if (arg == "--hw-decode") {
 			opts.hwDecode = true;
 		} else if (arg == "--hw-encode") {
@@ -180,7 +210,7 @@ void printProgress(int current, int total, double fps, double /*elapsed*/) {
 		else std::cout << " ";
 	}
 	
-	double eta = (total - current) / fps;
+	double eta = (fps > 0.001) ? (total - current) / fps : 0.0;
 	
 	std::cout << "] " << std::fixed << std::setprecision(1) << progress << "% ";
 	std::cout << "(" << current << "/" << total << " frames) ";

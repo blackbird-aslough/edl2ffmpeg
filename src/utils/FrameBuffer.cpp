@@ -54,15 +54,15 @@ FrameBufferPool::~FrameBufferPool() {
 	Logger::debug("Frame buffer pool destroyed, cleaned up {} frames", totalAllocated);
 }
 
-FrameBufferPool::FrameBufferPool(FrameBufferPool&& other) noexcept {
-	std::lock_guard<std::mutex> lock(other.poolMutex);
-	width = other.width;
-	height = other.height;
-	format = other.format;
-	poolSize = other.poolSize;
-	availableFrames = std::move(other.availableFrames);
-	totalAllocated = other.totalAllocated;
-	
+FrameBufferPool::FrameBufferPool(FrameBufferPool&& other) noexcept 
+	: width(other.width),
+	  height(other.height),
+	  format(other.format),
+	  poolSize(other.poolSize),
+	  availableFrames(std::move(other.availableFrames)),
+	  totalAllocated(other.totalAllocated) {
+	// Clear the moved-from object without locking
+	// The moved-from object should not be accessed concurrently
 	other.width = 0;
 	other.height = 0;
 	other.format = AV_PIX_FMT_NONE;
@@ -71,8 +71,10 @@ FrameBufferPool::FrameBufferPool(FrameBufferPool&& other) noexcept {
 
 FrameBufferPool& FrameBufferPool::operator=(FrameBufferPool&& other) noexcept {
 	if (this != &other) {
-		std::lock_guard<std::mutex> lock1(poolMutex);
-		std::lock_guard<std::mutex> lock2(other.poolMutex);
+		// Use std::lock to avoid deadlock when locking multiple mutexes
+		std::unique_lock<std::mutex> lock1(poolMutex, std::defer_lock);
+		std::unique_lock<std::mutex> lock2(other.poolMutex, std::defer_lock);
+		std::lock(lock1, lock2);
 		
 		// Clean up existing frames
 		while (!availableFrames.empty()) {
