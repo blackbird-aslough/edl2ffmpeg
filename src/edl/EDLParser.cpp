@@ -31,15 +31,9 @@ EDL EDLParser::parse(const std::string& filename) {
 EDL EDLParser::parseJSON(const nlohmann::json& j) {
 	EDL edl;
 	
-	if (j.contains("fps")) {
-		edl.fps = j["fps"];
-	}
-	if (j.contains("width")) {
-		edl.width = j["width"];
-	}
-	if (j.contains("height")) {
-		edl.height = j["height"];
-	}
+	getIfExists(j, "fps", edl.fps);
+	getIfExists(j, "width", edl.width);
+	getIfExists(j, "height", edl.height);
 	
 	if (j.contains("clips")) {
 		for (const auto& clipJson : j["clips"]) {
@@ -64,33 +58,15 @@ Source EDLParser::parseSource(const nlohmann::json& j) {
 MediaSource EDLParser::parseMediaSource(const nlohmann::json& j) {
 	MediaSource source;
 	
-	if (j.contains("uri")) {
-		source.uri = j["uri"];
-	}
-	if (j.contains("trackId")) {
-		source.trackId = j["trackId"];
-	}
-	if (j.contains("in")) {
-		source.in = j["in"];
-	}
-	if (j.contains("out")) {
-		source.out = j["out"];
-	}
-	if (j.contains("width")) {
-		source.width = j["width"];
-	}
-	if (j.contains("height")) {
-		source.height = j["height"];
-	}
-	if (j.contains("fps")) {
-		source.fps = j["fps"];
-	}
-	if (j.contains("rotation")) {
-		source.rotation = j["rotation"];
-	}
-	if (j.contains("flip")) {
-		source.flip = j["flip"];
-	}
+	getIfExists(j, "uri", source.uri);
+	getIfExists(j, "trackId", source.trackId);
+	getIfExists(j, "in", source.in);
+	getIfExists(j, "out", source.out);
+	getIfExists(j, "width", source.width);
+	getIfExists(j, "height", source.height);
+	getIfExists(j, "fps", source.fps);
+	getIfExists(j, "rotation", source.rotation);
+	getIfExists(j, "flip", source.flip);
 	
 	return source;
 }
@@ -213,28 +189,18 @@ ShapeControlPoint EDLParser::parseShapeControlPoint(const nlohmann::json& j) {
 Track EDLParser::parseTrack(const nlohmann::json& j) {
 	Track track;
 	
-	if (j.contains("type")) {
-		std::string typeStr = j["type"];
-		if (typeStr == "video") {
-			track.type = Track::Video;
-		} else if (typeStr == "audio") {
-			track.type = Track::Audio;
-		} else if (typeStr == "subtitle") {
-			track.type = Track::Subtitle;
-		} else if (typeStr == "caption") {
-			track.type = Track::Caption;
-		}
-	}
+	static const std::map<std::string, Track::Type> typeMap = {
+		{"video", Track::Video},
+		{"audio", Track::Audio},
+		{"subtitle", Track::Subtitle},
+		{"caption", Track::Caption}
+	};
 	
-	if (j.contains("number")) {
-		track.number = j["number"];
-	}
-	if (j.contains("subtype")) {
-		track.subtype = j["subtype"];
-	}
-	if (j.contains("subnumber")) {
-		track.subnumber = j["subnumber"];
-	}
+	getEnumIfExists(j, "type", track.type, typeMap);
+	
+	getIfExists(j, "number", track.number);
+	getIfExists(j, "subtype", track.subtype);
+	getIfExists(j, "subnumber", track.subnumber);
 	
 	return track;
 }
@@ -242,21 +208,11 @@ Track EDLParser::parseTrack(const nlohmann::json& j) {
 Motion EDLParser::parseMotion(const nlohmann::json& j) {
 	Motion motion;
 	
-	if (j.contains("panX")) {
-		motion.panX = j["panX"];
-	}
-	if (j.contains("panY")) {
-		motion.panY = j["panY"];
-	}
-	if (j.contains("zoomX")) {
-		motion.zoomX = j["zoomX"];
-	}
-	if (j.contains("zoomY")) {
-		motion.zoomY = j["zoomY"];
-	}
-	if (j.contains("rotation")) {
-		motion.rotation = j["rotation"];
-	}
+	getIfExists(j, "panX", motion.panX);
+	getIfExists(j, "panY", motion.panY);
+	getIfExists(j, "zoomX", motion.zoomX);
+	getIfExists(j, "zoomY", motion.zoomY);
+	getIfExists(j, "rotation", motion.rotation);
 	
 	return motion;
 }
@@ -264,12 +220,8 @@ Motion EDLParser::parseMotion(const nlohmann::json& j) {
 Transition EDLParser::parseTransition(const nlohmann::json& j) {
 	Transition transition;
 	
-	if (j.contains("type")) {
-		transition.type = j["type"];
-	}
-	if (j.contains("duration")) {
-		transition.duration = j["duration"];
-	}
+	getIfExists(j, "type", transition.type);
+	getIfExists(j, "duration", transition.duration);
 	
 	return transition;
 }
@@ -277,23 +229,16 @@ Transition EDLParser::parseTransition(const nlohmann::json& j) {
 Clip EDLParser::parseClip(const nlohmann::json& j) {
 	Clip clip;
 	
-	if (j.contains("in")) {
-		clip.in = j["in"];
-	}
-	if (j.contains("out")) {
-		clip.out = j["out"];
-	}
+	getIfExists(j, "in", clip.in);
+	getIfExists(j, "out", clip.out);
+	getIfExists(j, "topFade", clip.topFade);
+	getIfExists(j, "tailFade", clip.tailFade);
+	
 	if (j.contains("track")) {
 		clip.track = parseTrack(j["track"]);
 	}
 	if (j.contains("source")) {
 		clip.source = parseSource(j["source"]);
-	}
-	if (j.contains("topFade")) {
-		clip.topFade = j["topFade"];
-	}
-	if (j.contains("tailFade")) {
-		clip.tailFade = j["tailFade"];
 	}
 	if (j.contains("motion")) {
 		clip.motion = parseMotion(j["motion"]);
