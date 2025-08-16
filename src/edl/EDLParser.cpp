@@ -11,7 +11,20 @@ EDL EDLParser::parse(const std::string& filename) {
 	}
 	
 	nlohmann::json j;
-	file >> j;
+	try {
+		file >> j;
+	} catch (const nlohmann::json::parse_error& e) {
+		throw std::runtime_error("Failed to parse EDL JSON: " + std::string(e.what()));
+	}
+	
+	// Validate required fields
+	if (!j.contains("tracks")) {
+		throw std::runtime_error("EDL JSON missing required field: tracks");
+	}
+	if (!j.contains("sources")) {
+		throw std::runtime_error("EDL JSON missing required field: sources");
+	}
+	
 	return parseJSON(j);
 }
 

@@ -5,6 +5,7 @@
 #include <sstream>
 #include <chrono>
 #include <iomanip>
+#include <atomic>
 
 namespace utils {
 
@@ -42,7 +43,7 @@ public:
 	}
 	
 private:
-	static Level currentLevel;
+	static std::atomic<Level> currentLevel;
 	
 	template<typename... Args>
 	static void log(Level level, const std::string& levelStr,

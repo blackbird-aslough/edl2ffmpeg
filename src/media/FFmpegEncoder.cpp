@@ -535,7 +535,9 @@ bool FFmpegEncoder::encodeHardwareFrame(AVFrame* frame) {
 		av_packet_unref(packet);
 		
 		if (ret < 0) {
-			utils::Logger::error("Error writing hardware packet");
+			char errbuf[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, errbuf, sizeof(errbuf));
+			utils::Logger::error("Error writing hardware packet: {}", errbuf);
 			return false;
 		}
 		
@@ -560,7 +562,9 @@ bool FFmpegEncoder::encodeFrame(AVFrame* frame) {
 		av_packet_unref(packet);
 		
 		if (ret < 0) {
-			utils::Logger::error("Error writing packet");
+			char errbuf[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, errbuf, sizeof(errbuf));
+			utils::Logger::error("Error writing packet: {}", errbuf);
 			return false;
 		}
 		
@@ -580,6 +584,9 @@ bool FFmpegEncoder::flushEncoder() {
 		av_packet_unref(packet);
 		
 		if (ret < 0) {
+			char errbuf[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, errbuf, sizeof(errbuf));
+			utils::Logger::error("Error writing flush packet: {}", errbuf);
 			return false;
 		}
 	}

@@ -97,7 +97,9 @@ bool FFmpegCompat::decodeVideoFrameNew(AVCodecContext* codecCtx, AVFrame* frame,
 			// This is expected in some cases
 			return false;
 		}
-		utils::Logger::error("Error sending packet to decoder");
+		char errbuf[AV_ERROR_MAX_STRING_SIZE];
+		av_strerror(ret, errbuf, sizeof(errbuf));
+		utils::Logger::error("Error sending packet to decoder: {}", errbuf);
 		return false;
 	}
 	
@@ -110,7 +112,9 @@ bool FFmpegCompat::decodeVideoFrameNew(AVCodecContext* codecCtx, AVFrame* frame,
 		// End of stream
 		return false;
 	} else if (ret < 0) {
-		utils::Logger::error("Error receiving frame from decoder");
+		char errbuf[AV_ERROR_MAX_STRING_SIZE];
+		av_strerror(ret, errbuf, sizeof(errbuf));
+		utils::Logger::error("Error receiving frame from decoder: {}", errbuf);
 		return false;
 	}
 	

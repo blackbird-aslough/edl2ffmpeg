@@ -200,10 +200,10 @@ void printProgress(int current, int total, double fps, double /*elapsed*/) {
 	int barWidth = 50;
 	int pos = static_cast<int>(barWidth * current / total);
 	
-	// Ensure pos doesn't exceed barWidth - 1
-	if (pos >= barWidth) pos = barWidth - 1;
+	// Allow pos to reach barWidth for 100% completion
+	if (pos > barWidth) pos = barWidth;
 	
-	std::cout << "\r[";
+	std::cout << "[";
 	for (int i = 0; i < barWidth; ++i) {
 		if (i < pos) std::cout << "=";
 		else if (i == pos && current < total) std::cout << ">";

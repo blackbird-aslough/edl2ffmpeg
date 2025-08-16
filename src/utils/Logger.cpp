@@ -2,6 +2,6 @@
 
 namespace utils {
 
-Logger::Level Logger::currentLevel = Logger::INFO;
+std::atomic<Logger::Level> Logger::currentLevel{Logger::INFO};
 
 } // namespace utils

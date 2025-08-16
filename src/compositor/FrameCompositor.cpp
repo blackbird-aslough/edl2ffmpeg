@@ -110,10 +110,15 @@ void FrameCompositor::fillWithColor(AVFrame* frame, float r, float g, float b) {
 	if (format == AV_PIX_FMT_YUV420P || format == AV_PIX_FMT_YUV422P ||
 		format == AV_PIX_FMT_YUV444P) {
 		
+		// Clamp RGB values to [0,1] range before conversion
+		float r_clamped = std::max(0.0f, std::min(1.0f, r));
+		float g_clamped = std::max(0.0f, std::min(1.0f, g));
+		float b_clamped = std::max(0.0f, std::min(1.0f, b));
+		
 		// Simple RGB to YUV conversion
-		int y = static_cast<int>(0.299f * r * 255 + 0.587f * g * 255 + 0.114f * b * 255);
-		int u = static_cast<int>(-0.147f * r * 255 - 0.289f * g * 255 + 0.436f * b * 255 + 128);
-		int v = static_cast<int>(0.615f * r * 255 - 0.515f * g * 255 - 0.100f * b * 255 + 128);
+		int y = static_cast<int>(0.299f * r_clamped * 255 + 0.587f * g_clamped * 255 + 0.114f * b_clamped * 255);
+		int u = static_cast<int>(-0.147f * r_clamped * 255 - 0.289f * g_clamped * 255 + 0.436f * b_clamped * 255 + 128);
+		int v = static_cast<int>(0.615f * r_clamped * 255 - 0.515f * g_clamped * 255 - 0.100f * b_clamped * 255 + 128);
 		
 		y = std::max(0, std::min(255, y));
 		u = std::max(0, std::min(255, u));
