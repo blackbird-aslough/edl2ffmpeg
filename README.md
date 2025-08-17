@@ -9,12 +9,17 @@ edl2ffmpeg is an open-source tool that renders EDL files to compressed video out
 ## Features
 
 - **Direct FFmpeg Integration**: Links directly with FFmpeg libraries for maximum performance
+- **Publishing EDL Format**: Supports the publishing EDL JSON format with 'uri' field for media references
 - **Lazy Evaluation**: Transforms EDL timeline into lazily-evaluated compositor instructions
 - **Memory Efficient**: Frame buffer pooling to minimize allocations
 - **Extensible Effects System**: Modular effect architecture ready for SIMD/GPU acceleration
-- **Multi-format Support**: Handles common codecs (H.264, H.265, ProRes)
+- **Multi-format Support**: Handles common codecs (H.264, H.265, ProRes, VP9)
 - **Hardware Acceleration**: Auto-detection and support for NVENC, VAAPI, VideoToolbox
+- **Zero-copy GPU Passthrough**: Frames without effects stay on GPU for maximum performance
 - **Real-time Progress**: Visual progress bar with FPS and ETA reporting
+- **Track Alignment**: Automatic null clip insertion for proper track synchronization
+- **Sources Array Support**: Single-element sources arrays for future multi-source clips
+- **Generate Sources**: Built-in black frame generation
 
 ## Building
 
@@ -71,10 +76,13 @@ Usage: edl2ffmpeg <edl_file> <output_file> [options]
 
 Options:
   -c, --codec <codec>      Video codec (default: libx264)
-  -b, --bitrate <bitrate>  Video bitrate (default: 4000000)
+  -b, --bitrate <bitrate>  Video bitrate in bps (default: auto)
   -p, --preset <preset>    Encoder preset (default: medium)
   --crf <value>            Constant Rate Factor (default: 23)
-  --hw-accel <type>        Hardware acceleration (auto/cuda/vaapi/videotoolbox/none)
+  --hw-accel <type>        Hardware acceleration (auto/cuda/vaapi/videotoolbox/none, default: auto)
+  --hw-encode              Force hardware encoding when available
+  --hw-decode              Force hardware decoding when available
+  --async-depth <n>        Hardware encoder async depth (default: 4)
   -v, --verbose            Enable verbose logging
   -q, --quiet              Suppress all non-error output
   -h, --help               Show this help message
@@ -83,71 +91,122 @@ Examples:
   edl2ffmpeg input.json output.mp4
   edl2ffmpeg input.json output.mp4 --codec libx265 --crf 28
   edl2ffmpeg input.json output.mp4 -b 8000000 -p fast
-  edl2ffmpeg input.json output.mp4 --hw-accel cuda    # Use NVIDIA hardware encoding
+  edl2ffmpeg input.json output.mp4 --hw-accel cuda --hw-encode   # NVIDIA GPU encoding
+  edl2ffmpeg input.json output.mp4 --hw-accel videotoolbox --hw-encode --hw-decode  # Full macOS hardware acceleration
   edl2ffmpeg input.json output.mp4 --hw-accel none    # Force software encoding
 ```
 
 ## EDL Format
 
-The EDL file should be in JSON format with the following structure:
+The tool supports the publishing EDL JSON format. See [UNSUPPORTED_EDL_FEATURES.md](docs/UNSUPPORTED_EDL_FEATURES.md) for features not yet implemented.
 
+### Example EDL Files
+
+#### Simple Video Clip
 ```json
 {
-	"fps": 30,
-	"width": 1920,
-	"height": 1080,
-	"clips": [
-		{
-			"in": 0,
-			"out": 10,
-			"track": {
-				"type": "video",
-				"number": 1
-			},
-			"source": {
-				"uri": "video.mp4",
-				"in": 0,
-				"out": 10,
-				"width": 1920,
-				"height": 1080,
-				"fps": 30
-			},
-			"topFade": 1.0,
-			"tailFade": 0.5
-		},
-		{
-			"in": 0,
-			"out": 10,
-			"track": {
-				"type": "video",
-				"number": 1,
-				"subtype": "transform"
-			},
-			"source": {
-				"in": 0,
-				"out": 10,
-				"controlPoints": [
-					{
-						"point": 0,
-						"panx": 0,
-						"pany": 0,
-						"zoomx": 1.0,
-						"zoomy": 1.0,
-						"rotate": 0,
-						"shape": 1
-					}
-				]
-			}
-		}
-	]
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "clips": [
+    {
+      "in": 0,
+      "out": 10,
+      "track": {
+        "type": "video",
+        "number": 1
+      },
+      "source": {
+        "uri": "video.mp4",
+        "in": 0,
+        "out": 10
+      },
+      "topFade": 1.0,
+      "tailFade": 0.5
+    }
+  ]
+}
+```
+
+#### Using Sources Array
+```json
+{
+  "clips": [
+    {
+      "in": 0,
+      "out": 5,
+      "track": {"type": "video", "number": 1},
+      "sources": [
+        {
+          "uri": "clip.mp4",
+          "in": 0,
+          "out": 5
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### Black Frame Generation
+```json
+{
+  "clips": [
+    {
+      "in": 0,
+      "out": 3,
+      "track": {"type": "video", "number": 1},
+      "source": {
+        "generate": {"type": "black"},
+        "in": 0,
+        "out": 3,
+        "width": 1920,
+        "height": 1080
+      }
+    }
+  ]
+}
+```
+
+#### With Effects Track
+```json
+{
+  "clips": [
+    {
+      "in": 0,
+      "out": 10,
+      "track": {"type": "video", "number": 1},
+      "source": {
+        "uri": "video.mp4",
+        "in": 0,
+        "out": 10
+      }
+    },
+    {
+      "in": 0,
+      "out": 10,
+      "track": {
+        "type": "video",
+        "number": 1,
+        "subtype": "effects",
+        "subnumber": 1
+      },
+      "source": {
+        "type": "brightness",
+        "in": 0,
+        "out": 10,
+        "value": 1.5
+      }
+    }
+  ]
 }
 ```
 
 ### EDL Properties
 
-- `fps`: Frame rate of the output video (optional, must be evenly divisible into the quantum rate)
-- `width`: Width of the output video in pixels (optional)
-- `height`: Height of the output video in pixels (optional)
+- `fps`: Frame rate of the output video (default: 30)
+- `width`: Width of the output video in pixels (default: 1920)
+- `height`: Height of the output video in pixels (default: 1080)
 - `clips`: Array of clip objects
 
 ### Clip Properties
@@ -155,43 +214,64 @@ The EDL file should be in JSON format with the following structure:
 - `in`: Start time on timeline (seconds, required)
 - `out`: End time on timeline (seconds, required)
 - `track`: Track information (required)
-  - `type`: Track type ("video", "audio", "subtitle", "burnin", "caption")
+  - `type`: Track type ("video", "audio", "subtitle", "burnin")
   - `number`: Track number (positive integer, 1-based)
   - `subtype`: Optional subtype ("effects", "transform", "colour", "level", "pan")
-  - `subnumber`: Optional ordering for effects subtracks
-- `source` or `sources`: Source definition (required, can be single object or array)
-  - `in`: Start time in source (seconds)
-  - `out`: End time in source (seconds)
-  - One of:
-    - `uri`: Path/URI to media file (relative paths resolved from EDL location)
-    - `location`: Object with `id` and `type` for remote sources
-    - `generate`: Object with `type` ("black", "colour", "demo", "testpattern")
-  - Optional source properties:
-    - `width`, `height`: Source dimensions
-    - `fps`: Source frame rate
-    - `speed`: Speed factor (> 0)
-    - `gamma`: Gamma correction (video only)
-    - `trackId`: Track within source ("V1", "A1", etc.)
-    - `audiomix`: "avg" to mix all audio channels
-    - `text`: Text content (for subtitle/burnin tracks)
-- Optional clip properties:
-  - `topFade`: Fade-in duration (seconds)
-  - `tailFade`: Fade-out duration (seconds)
-  - `topFadeYUV`: Fade-in color (6-digit hex YUV)
-  - `tailFadeYUV`: Fade-out color (6-digit hex YUV)
-  - `motion`: Motion control object
-    - `offset`: Time offset
-    - `duration`: Effect duration
-    - `bezier`: Array of bezier control points
-  - `transition`: Transition to next clip
-    - `source` or `sources`: Source for transition
-    - `type`: Transition type
-    - `invert`: Boolean to invert transition
-    - `points`: Number of points
-    - `xsquares`: Grid squares
-  - `channelMap`: Audio channel mapping
-  - `textFormat`: Text formatting for subtitles/burnin
-  - `sync`: Sync ID to link related clips
+  - `subnumber`: Optional ordering for effects subtracks (default: 1)
+- `source` or `sources`: Source definition (required)
+  - **Note**: `sources` array currently supports only single element
+  - `in`: Start time in source (seconds, required)
+  - `out`: End time in source (seconds, required, must be > in)
+  
+### Source Types
+
+#### Media Source (from file)
+```json
+{
+  "uri": "path/to/video.mp4",
+  "in": 0,
+  "out": 10,
+  "trackId": "V1",
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "speed": 1.0,
+  "gamma": 1.0
+}
+```
+
+#### Generate Source (currently only "black" supported)
+```json
+{
+  "generate": {
+    "type": "black"
+  },
+  "in": 0,
+  "out": 5,
+  "width": 1920,
+  "height": 1080
+}
+```
+
+#### Effect Source (for effects tracks)
+```json
+{
+  "type": "brightness",
+  "in": 0,
+  "out": 10,
+  "value": 1.5
+}
+```
+
+### Optional Clip Properties
+
+- `topFade`: Fade-in duration (seconds)
+- `tailFade`: Fade-out duration (seconds)
+- `motion`: Pan/zoom/rotation parameters
+- `transition`: Transition settings (limited support)
+- `channelMap`: Audio channel mapping (1:1 mapping only)
+- `textFormat`: Text formatting for subtitles/burnin
+- `sync`: Sync group ID
 
 ## Architecture
 
@@ -217,19 +297,23 @@ The system follows a pipeline architecture:
 
 ### Current Performance
 
-- 1080p30 video: 60+ fps processing (2x realtime) on CPU
-- Hardware encoding: 200+ fps with NVENC/VideoToolbox
+- 1080p30 video: 250+ fps processing on Apple Silicon
+- Hardware encoding: 300+ fps with VideoToolbox on macOS
 - Zero-copy GPU passthrough for frames without effects
 - Memory usage: Under 500MB for typical operations
-- Support for H.264, H.265, ProRes codecs
+- Support for H.264, H.265, ProRes, VP9 codecs
+- Platform-specific optimizations for consistent output
 
 ### Optimization Roadmap
 
-- SIMD optimizations for effects (SSE4.2, AVX2, AVX-512)
-- GPU acceleration for effects (OpenCL, CUDA, Vulkan)
-- Multi-threaded pipeline architecture
 - [x] Hardware encoder/decoder support (IMPLEMENTED)
 - [x] Zero-copy GPU passthrough for unmodified frames (IMPLEMENTED)
+- [x] Platform-specific B-frame handling for consistency (IMPLEMENTED)
+- [ ] SIMD optimizations for effects (SSE4.2, AVX2, AVX-512)
+- [ ] GPU acceleration for effects (OpenCL, CUDA, Vulkan)
+- [ ] Multi-threaded pipeline architecture
+- [ ] Multiple source concatenation support
+- [ ] Advanced transition effects
 
 ## Development
 
