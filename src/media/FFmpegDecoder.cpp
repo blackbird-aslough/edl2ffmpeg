@@ -218,28 +218,12 @@ void FFmpegDecoder::setupDecoder() {
 			HardwareAcceleration::getBestAccelType() : decoderConfig.hwConfig.type;
 		
 		if (hwType == HWAccelType::VideoToolbox) {
-			// VideoToolbox uses hwaccel but doesn't need explicit device context
-			// It will be set up automatically by FFmpeg when we open the codec
-			// We just need to indicate that we want hardware acceleration
-#if HAVE_HWDEVICE_API
-			// Find the VideoToolbox hardware config
-			for (int i = 0;; i++) {
-				const AVCodecHWConfig* config = avcodec_get_hw_config(codec, i);
-				if (!config) {
-					break;
-				}
-				
-				// VideoToolbox uses AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX
-				if (config->methods & (AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX | AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX)) {
-					AVPixelFormat expectedFormat = HardwareAcceleration::getHWPixelFormat(hwType);
-					if (config->pix_fmt == expectedFormat) {
-						// Let FFmpeg handle VideoToolbox setup internally
-						// Don't set hw_device_ctx for VideoToolbox
-						break;
-					}
-				}
-			}
-#endif
+			// VideoToolbox hardware decoding is complex and doesn't provide
+			// significant benefits for our use case. The decoder outputs software
+			// frames anyway after internal hardware acceleration.
+			// Disable it to avoid complexity and potential segfaults.
+			utils::Logger::info("VideoToolbox hardware decoding disabled - using software decode with hardware encode");
+			usingHardware = false;
 		} else if (hwDeviceCtx) {
 			// Other hardware accelerators need device context
 #if HAVE_HWDEVICE_API
