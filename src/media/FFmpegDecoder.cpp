@@ -476,12 +476,17 @@ bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
 	// If using hardware decoding, transfer the frame to software
 	if (success && usingHardware && hwFrame) {
 		if (HardwareAcceleration::isHardwareFrame(hwFrame)) {
-			// For VideoToolbox, we need to allocate a temporary frame with the correct format
-			// VideoToolbox may output frames in various formats like NV12, P010, etc.
-			AVFrame* tempFrame = av_frame_alloc();
-			if (!tempFrame) {
-				success = false;
-			} else {
+			// First attempt direct transfer for optimal performance (works for VAAPI/NVENC)
+			int transferRet = av_hwframe_transfer_data(frame, hwFrame, 0);
+			
+			if (transferRet < 0) {
+				// Direct transfer failed - this happens with VideoToolbox when format conversion is needed
+				// For VideoToolbox, we need to allocate a temporary frame with the correct format
+				// VideoToolbox may output frames in various formats like NV12, P010, etc.
+				AVFrame* tempFrame = av_frame_alloc();
+				if (!tempFrame) {
+					success = false;
+				} else {
 				// Set up the temporary frame format
 #if HAVE_HWDEVICE_API
 				if (hwFrame->hw_frames_ctx) {
@@ -566,6 +571,10 @@ bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
 						av_frame_free(&tempFrame);
 					}
 				}
+			}
+			} else {
+				// Direct transfer succeeded - copy properties
+				av_frame_copy_props(frame, hwFrame);
 			}
 		} else {
 			// Frame is already in software format (can happen with some decoders)

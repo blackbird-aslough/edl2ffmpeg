@@ -321,6 +321,14 @@ int HardwareAcceleration::transferSWFrameToHW(AVFrame* swFrame, AVFrame* hwFrame
 		hwFrame->hw_frames_ctx = hwFrameCtx;
 	}
 	
+	// Allocate buffer for the hardware frame if not already allocated
+	if (!hwFrame->buf[0]) {
+		int ret = av_hwframe_get_buffer(hwFrame->hw_frames_ctx, hwFrame, 0);
+		if (ret < 0) {
+			return ret;
+		}
+	}
+	
 	// Transfer data from CPU to GPU
 	return av_hwframe_transfer_data(hwFrame, swFrame, 0);
 #else

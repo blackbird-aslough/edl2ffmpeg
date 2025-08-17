@@ -636,20 +636,38 @@ bool FFmpegEncoder::encodeHardwareFrame(AVFrame* frame) {
 		return sendFrameAsync(frame);
 	}
 	
-	// Fallback to synchronous encoding
-	if (FFmpegCompat::encodeVideoFrame(codecCtx, frame, packet)) {
+	// Send frame to encoder
+	int ret = avcodec_send_frame(codecCtx, frame);
+	if (ret < 0 && ret != AVERROR(EAGAIN)) {
+		char errbuf[AV_ERROR_MAX_STRING_SIZE];
+		av_strerror(ret, errbuf, sizeof(errbuf));
+		utils::Logger::error("Error sending hardware frame to encoder: {}", errbuf);
+		return false;
+	}
+	
+	// Drain packets from encoder
+	while (true) {
+		ret = avcodec_receive_packet(codecCtx, packet);
+		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+			break;
+		}
+		if (ret < 0) {
+			char errbuf[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, errbuf, sizeof(errbuf));
+			utils::Logger::error("Error receiving packet from encoder: {}", errbuf);
+			return false;
+		}
+		
 		// Rescale timestamps
 		av_packet_rescale_ts(packet, codecCtx->time_base, videoStream->time_base);
 		packet->stream_index = videoStream->index;
 		
 		// Write packet
-		int ret = av_interleaved_write_frame(formatCtx, packet);
+		int writeRet = av_interleaved_write_frame(formatCtx, packet);
 		av_packet_unref(packet);
 		
-		if (ret < 0) {
-			char errbuf[AV_ERROR_MAX_STRING_SIZE];
-			av_strerror(ret, errbuf, sizeof(errbuf));
-			utils::Logger::error("Error writing hardware packet: {}", errbuf);
+		if (writeRet < 0) {
+			utils::Logger::error("Error writing hardware packet");
 			return false;
 		}
 		
@@ -669,20 +687,38 @@ bool FFmpegEncoder::encodeFrame(AVFrame* frame) {
 		return sendFrameAsync(frame);
 	}
 	
-	// Synchronous encoding for software encoders
-	if (FFmpegCompat::encodeVideoFrame(codecCtx, frame, packet)) {
+	// Send frame to encoder
+	int ret = avcodec_send_frame(codecCtx, frame);
+	if (ret < 0 && ret != AVERROR(EAGAIN)) {
+		char errbuf[AV_ERROR_MAX_STRING_SIZE];
+		av_strerror(ret, errbuf, sizeof(errbuf));
+		utils::Logger::error("Error sending frame to encoder: {}", errbuf);
+		return false;
+	}
+	
+	// Drain packets from encoder
+	while (true) {
+		ret = avcodec_receive_packet(codecCtx, packet);
+		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+			break;
+		}
+		if (ret < 0) {
+			char errbuf[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, errbuf, sizeof(errbuf));
+			utils::Logger::error("Error receiving packet from encoder: {}", errbuf);
+			return false;
+		}
+		
 		// Rescale timestamps
 		av_packet_rescale_ts(packet, codecCtx->time_base, videoStream->time_base);
 		packet->stream_index = videoStream->index;
 		
 		// Write packet
-		int ret = av_interleaved_write_frame(formatCtx, packet);
+		int writeRet = av_interleaved_write_frame(formatCtx, packet);
 		av_packet_unref(packet);
 		
-		if (ret < 0) {
-			char errbuf[AV_ERROR_MAX_STRING_SIZE];
-			av_strerror(ret, errbuf, sizeof(errbuf));
-			utils::Logger::error("Error writing packet: {}", errbuf);
+		if (writeRet < 0) {
+			utils::Logger::error("Error writing packet");
 			return false;
 		}
 		
@@ -693,18 +729,29 @@ bool FFmpegEncoder::encodeFrame(AVFrame* frame) {
 }
 
 bool FFmpegEncoder::flushEncoder() {
-	// Flush encoder by sending null frame repeatedly
-	while (FFmpegCompat::encodeVideoFrame(codecCtx, nullptr, packet)) {
+	// Send flush signal to encoder
+	int ret = avcodec_send_frame(codecCtx, nullptr);
+	if (ret < 0 && ret != AVERROR_EOF) {
+		return false;
+	}
+	
+	// Drain remaining packets
+	while (true) {
+		ret = avcodec_receive_packet(codecCtx, packet);
+		if (ret == AVERROR_EOF) {
+			break;
+		}
+		if (ret < 0) {
+			return false;
+		}
+		
 		av_packet_rescale_ts(packet, codecCtx->time_base, videoStream->time_base);
 		packet->stream_index = videoStream->index;
 		
-		int ret = av_interleaved_write_frame(formatCtx, packet);
+		int writeRet = av_interleaved_write_frame(formatCtx, packet);
 		av_packet_unref(packet);
 		
-		if (ret < 0) {
-			char errbuf[AV_ERROR_MAX_STRING_SIZE];
-			av_strerror(ret, errbuf, sizeof(errbuf));
-			utils::Logger::error("Error writing flush packet: {}", errbuf);
+		if (writeRet < 0) {
 			return false;
 		}
 	}
