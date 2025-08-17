@@ -34,7 +34,7 @@ The parser will explicitly reject EDLs containing these features with descriptiv
 
 ### Motion and Animation
 - ❌ **Motion bezier curves** - Complex speed control with bezier interpolation
-- ❌ **Complex motion control** - Advanced motion parameters beyond basic pan/zoom
+- ❌ **Complex motion control** - Advanced motion parameters beyond basic offset/duration
 
 ### Advanced Effects
 - ❌ **Font/fonts in clips** - Text overlay fonts
@@ -49,18 +49,43 @@ The parser will explicitly reject EDLs containing these features with descriptiv
 These features have basic support but not full implementation:
 
 ### Effects
-- ⚠️ **Effect sources** - Structure is parsed but effects beyond brightness/contrast may not render correctly
-- ⚠️ **Transform tracks** - Parsed but transform application is limited
-- ⚠️ **Colour tracks** - Parsed but color correction is not implemented
+- ⚠️ **Effect sources** - Structure is parsed but most video effects are not implemented:
+  - ✅ **Brightness** - Implemented
+  - ✅ **Contrast** - Implemented  
+  - ✅ **Fade** - Implemented
+  - ❌ **Blur** - Not implemented
+  - ❌ **Vignette** - Not implemented
+  - ❌ **BlackAndWhite** - Not implemented
+  - ❌ **Borders** - Not implemented
+  - ❌ **Crop** - Not implemented
+  - ❌ **Highlight** - Not implemented
+  - ❌ **LUT** (Look-up table color grading) - Not implemented
+  - ❌ **Mosaic** - Not implemented
+  - ❌ **OldFilm** - Not implemented
+  - ❌ **RGBBalance** - Not implemented
+- ⚠️ **Transform tracks** - Parsed but transform application is limited (pan/zoom/rotation not implemented)
+- ⚠️ **Colour tracks** - Parsed but color correction filters are not applied:
+  - ❌ **Saturation filter** (SATURATION type)
+  - ❌ **White balance filter** (WHITEBALANCE type)
+  - ❌ **Y channel filter** (Y_FILTER type)
+  - ❌ **U channel filter** (U_FILTER type)
+  - ❌ **V channel filter** (V_FILTER type)
 
 ### Transitions
 - ⚠️ **Basic transitions** - Structure is parsed but only dissolve is implemented
-- ⚠️ **Transition parameters** - Stored but not all are used
+- ⚠️ **Transition parameters** - Stored but not all are used (invert, points, xsquares parsed but not applied)
 
 ### Audio
-- ⚠️ **Channel mapping** - Basic support, but only 1:1 mapping
-- ⚠️ **Audio mix modes** - audiomix field is parsed but not implemented
-- ⚠️ **Pan/level tracks** - Parsed but not applied
+- ⚠️ **Channel mapping** - Basic support, but only 1:1 mapping with level=1.0
+- ⚠️ **Audio mix modes** - audiomix="avg" field is parsed but mixing is not implemented
+- ⚠️ **Pan tracks** - Parsed but pan control points are not applied to audio
+- ⚠️ **Level tracks** - Parsed but level control points are not applied to audio
+
+#### Unsupported Audio Effects
+The reference implementation includes these audio effects that are not implemented:
+- ❌ **Gain** - Audio gain/volume adjustment
+- ❌ **LowpassFilter** - Low-pass frequency filtering
+- ❌ **IIRFilter** - Infinite impulse response filtering
 
 ### Text
 - ⚠️ **Text formatting** - TextFormat is parsed but rendering is basic
@@ -72,11 +97,10 @@ These features are parsed and stored but not actively used:
 
 - 📦 YUV fade colors (topFadeYUV, tailFadeYUV)
 - 📦 Sync groups (sync field)
-- 📦 Track IDs (trackId for source selection)
-- 📦 Gamma correction
-- 📦 Speed factors
-- 📦 Source dimensions (width/height in sources)
-- 📦 FPS in sources
+- 📦 Gamma correction in sources
+- 📦 Speed factors in sources
+- 📦 Motion offset/duration parameters
+- 📦 Transition effect parameters (invert, points, xsquares)
 
 ## Implementation Priority
 
