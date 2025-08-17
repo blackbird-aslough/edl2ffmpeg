@@ -176,13 +176,18 @@ void FFmpegDecoder::setupDecoder() {
 				}
 			}
 			
-			// Create hardware device context
+			// Create hardware device context (not needed for VideoToolbox)
 			if (usingHardware) {
-				hwDeviceCtx = HardwareAcceleration::initializeHardwareContext(hwType, decoderConfig.hwConfig.deviceIndex, "decoder");
-				
-				if (!hwDeviceCtx) {
-					codec = nullptr;
-					usingHardware = false;
+				if (hwType != HWAccelType::VideoToolbox) {
+					hwDeviceCtx = HardwareAcceleration::initializeHardwareContext(hwType, decoderConfig.hwConfig.deviceIndex, "decoder");
+					
+					if (!hwDeviceCtx) {
+						codec = nullptr;
+						usingHardware = false;
+					}
+				} else {
+					// VideoToolbox doesn't need explicit device context for decoding
+					hwDeviceCtx = nullptr;
 				}
 			}
 		}
@@ -208,34 +213,61 @@ void FFmpegDecoder::setupDecoder() {
 	}
 	
 	// Set up hardware acceleration context if needed
-	if (usingHardware && hwDeviceCtx) {
-#if HAVE_HWDEVICE_API
-		codecCtx->hw_device_ctx = av_buffer_ref(hwDeviceCtx);
-#endif
+	if (usingHardware) {
+		HWAccelType hwType = decoderConfig.hwConfig.type == HWAccelType::Auto ? 
+			HardwareAcceleration::getBestAccelType() : decoderConfig.hwConfig.type;
 		
-		// For VAAPI and VideoToolbox, we need to get the hardware pixel format
+		if (hwType == HWAccelType::VideoToolbox) {
+			// VideoToolbox uses hwaccel but doesn't need explicit device context
+			// It will be set up automatically by FFmpeg when we open the codec
+			// We just need to indicate that we want hardware acceleration
 #if HAVE_HWDEVICE_API
-		if (codecName.find("cuvid") == std::string::npos) {
-			// Not using CUVID, need to find the hardware config
+			// Find the VideoToolbox hardware config
 			for (int i = 0;; i++) {
 				const AVCodecHWConfig* config = avcodec_get_hw_config(codec, i);
 				if (!config) {
 					break;
 				}
 				
-				if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) {
-					HWAccelType hwType = decoderConfig.hwConfig.type == HWAccelType::Auto ? 
-						HardwareAcceleration::getBestAccelType() : decoderConfig.hwConfig.type;
+				// VideoToolbox uses AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX
+				if (config->methods & (AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX | AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX)) {
 					AVPixelFormat expectedFormat = HardwareAcceleration::getHWPixelFormat(hwType);
-					
 					if (config->pix_fmt == expectedFormat) {
-						codecCtx->pix_fmt = config->pix_fmt;
+						// Let FFmpeg handle VideoToolbox setup internally
+						// Don't set hw_device_ctx for VideoToolbox
 						break;
 					}
 				}
 			}
-		}
 #endif
+		} else if (hwDeviceCtx) {
+			// Other hardware accelerators need device context
+#if HAVE_HWDEVICE_API
+			codecCtx->hw_device_ctx = av_buffer_ref(hwDeviceCtx);
+#endif
+			
+			// For VAAPI, we need to get the hardware pixel format
+#if HAVE_HWDEVICE_API
+			if (codecName.find("cuvid") == std::string::npos) {
+				// Not using CUVID, need to find the hardware config
+				for (int i = 0;; i++) {
+					const AVCodecHWConfig* config = avcodec_get_hw_config(codec, i);
+					if (!config) {
+						break;
+					}
+					
+					if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) {
+						AVPixelFormat expectedFormat = HardwareAcceleration::getHWPixelFormat(hwType);
+						
+						if (config->pix_fmt == expectedFormat) {
+							codecCtx->pix_fmt = config->pix_fmt;
+							break;
+						}
+					}
+				}
+			}
+#endif
+		}
 	}
 	
 	// Enable multi-threading for decoding

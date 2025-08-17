@@ -121,12 +121,17 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 					usingHardware = true;
 					utils::Logger::info("Using hardware encoder: {}", hwCodecName);
 					
-					// Create hardware device context
-					hwDeviceCtx = HardwareAcceleration::initializeHardwareContext(hwType, config.hwConfig.deviceIndex, "encoder");
-					
-					if (!hwDeviceCtx) {
-						codec = nullptr;
-						usingHardware = false;
+					// Create hardware device context (not needed for VideoToolbox)
+					if (hwType != HWAccelType::VideoToolbox) {
+						hwDeviceCtx = HardwareAcceleration::initializeHardwareContext(hwType, config.hwConfig.deviceIndex, "encoder");
+						
+						if (!hwDeviceCtx) {
+							codec = nullptr;
+							usingHardware = false;
+						}
+					} else {
+						// VideoToolbox doesn't need explicit device context
+						hwDeviceCtx = nullptr;
 					}
 				}
 			}
@@ -165,41 +170,53 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	codecCtx->height = config.height;
 	
 	// Set pixel format based on hardware acceleration
-	if (usingHardware && hwDeviceCtx) {
-		// Set hardware device context
-#if HAVE_HWDEVICE_API
-		codecCtx->hw_device_ctx = av_buffer_ref(hwDeviceCtx);
-#endif
-		
-		// Use hardware pixel format
+	if (usingHardware) {
 		HWAccelType hwType = config.hwConfig.type == HWAccelType::Auto ? 
 			HardwareAcceleration::getBestAccelType() : config.hwConfig.type;
-		AVPixelFormat hwPixFmt = HardwareAcceleration::getHWPixelFormat(hwType);
 		
-		// For hardware encoders, we need to set up frames context
-		// This allows direct GPU-to-GPU transfer
+		if (hwType == HWAccelType::VideoToolbox) {
+			// VideoToolbox uses software pixel format directly
+			// No need for hardware device context or frames context
+			codecCtx->pix_fmt = config.pixelFormat;  // Use software format (e.g., YUV420P)
+			// VideoToolbox will handle the hardware acceleration internally
+		} else if (hwDeviceCtx) {
+			// Other hardware accelerators need device context
 #if HAVE_HWDEVICE_API
-		AVBufferRef* hwFramesRef = av_hwframe_ctx_alloc(hwDeviceCtx);
-		if (hwFramesRef) {
-			AVHWFramesContext* hwFramesCtx = (AVHWFramesContext*)hwFramesRef->data;
-			hwFramesCtx->format = hwPixFmt;
-			hwFramesCtx->sw_format = config.pixelFormat;
-			hwFramesCtx->width = config.width;
-			hwFramesCtx->height = config.height;
-			hwFramesCtx->initial_pool_size = 20;
+			codecCtx->hw_device_ctx = av_buffer_ref(hwDeviceCtx);
+#endif
 			
-			if (av_hwframe_ctx_init(hwFramesRef) >= 0) {
-				codecCtx->hw_frames_ctx = hwFramesRef;
-			} else {
-				av_buffer_unref(&hwFramesRef);
-			}
-		}
-#endif
-		
-		codecCtx->pix_fmt = hwPixFmt;
+			// Use hardware pixel format
+			AVPixelFormat hwPixFmt = HardwareAcceleration::getHWPixelFormat(hwType);
+			
+			// For hardware encoders, we need to set up frames context
+			// This allows direct GPU-to-GPU transfer
 #if HAVE_HWDEVICE_API
-		codecCtx->sw_pix_fmt = config.pixelFormat;
+			AVBufferRef* hwFramesRef = av_hwframe_ctx_alloc(hwDeviceCtx);
+			if (hwFramesRef) {
+				AVHWFramesContext* hwFramesCtx = (AVHWFramesContext*)hwFramesRef->data;
+				hwFramesCtx->format = hwPixFmt;
+				hwFramesCtx->sw_format = config.pixelFormat;
+				hwFramesCtx->width = config.width;
+				hwFramesCtx->height = config.height;
+				hwFramesCtx->initial_pool_size = 20;
+				
+				if (av_hwframe_ctx_init(hwFramesRef) >= 0) {
+					codecCtx->hw_frames_ctx = hwFramesRef;
+				} else {
+					av_buffer_unref(&hwFramesRef);
+				}
+			}
 #endif
+			
+			codecCtx->pix_fmt = hwPixFmt;
+#if HAVE_HWDEVICE_API
+			codecCtx->sw_pix_fmt = config.pixelFormat;
+#endif
+		} else {
+			// Hardware requested but no device context - fall back to software
+			codecCtx->pix_fmt = config.pixelFormat;
+			usingHardware = false;
+		}
 	} else {
 		codecCtx->pix_fmt = config.pixelFormat;
 	}

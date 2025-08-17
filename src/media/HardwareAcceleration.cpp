@@ -106,12 +106,10 @@ AVBufferRef* HardwareAcceleration::createHWDeviceContext(HWAccelType type, int d
 	}
 		
 	case HWAccelType::VideoToolbox:
-#ifdef AV_HWDEVICE_TYPE_VIDEOTOOLBOX
-		ret = av_hwdevice_ctx_create(&hwDeviceCtx, AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
-			nullptr, nullptr, 0);
-#else
-		ret = -1;
-#endif
+		// VideoToolbox doesn't require explicit device context creation on macOS
+		// It works directly through the codec without needing av_hwdevice_ctx_create
+		utils::Logger::debug("VideoToolbox uses implicit device context - skipping explicit creation");
+		return nullptr;  // Return nullptr to indicate no explicit context needed
 		break;
 		
 	default:
