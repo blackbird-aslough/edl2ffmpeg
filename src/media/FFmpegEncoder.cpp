@@ -803,19 +803,41 @@ bool FFmpegEncoder::finalize() {
 		return true;
 	}
 	
-	// Process any remaining async frames
+	// Flush encoder
 	if (asyncMode) {
-		// Send flush signal
+		// For async mode, send flush signal
 		sendFrameAsync(nullptr);
 		
-		// Drain all remaining packets
-		while (framesInFlight > 0) {
-			receivePacketsAsync();
+		// Drain all remaining packets with timeout protection
+		int maxIterations = 1000;  // Prevent infinite loop
+		int iterations = 0;
+		
+		while (iterations < maxIterations) {
+			// Try to receive packets
+			bool receivedAny = receivePacketsAsync();
+			
+			// If we got AVERROR_EOF or no frames in flight, we're done
+			if (framesInFlight == 0) {
+				break;
+			}
+			
+			// If we didn't receive anything and still have frames in flight,
+			// send another flush signal to ensure encoder processes
+			if (!receivedAny && framesInFlight > 0) {
+				sendFrameAsync(nullptr);
+			}
+			
+			iterations++;
 		}
+		
+		if (iterations >= maxIterations) {
+			utils::Logger::warn("Async flush timeout - {} frames may be lost", framesInFlight);
+			framesInFlight = 0;  // Force clear to prevent hang
+		}
+	} else {
+		// For sync mode, use the traditional flush
+		flushEncoder();
 	}
-	
-	// Flush encoder
-	flushEncoder();
 	
 	// Write trailer
 	int ret = av_write_trailer(formatCtx);
