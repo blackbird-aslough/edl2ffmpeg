@@ -25,9 +25,10 @@ void testSimpleEDL() {
 		assert(edl.clips.size() == 1);
 		
 		const auto& clip = edl.clips[0];
-		// Check that it's a media source
-		assert(std::holds_alternative<edl::MediaSource>(clip.source));
-		const auto& mediaSource = std::get<edl::MediaSource>(clip.source);
+		// Check that source exists and is a media source
+		assert(clip.source.has_value());
+		assert(std::holds_alternative<edl::MediaSource>(clip.source.value()));
+		const auto& mediaSource = std::get<edl::MediaSource>(clip.source.value());
 		assert(mediaSource.uri == "test_video.mp4");
 		assert(mediaSource.trackId == "V1");
 		assert(mediaSource.in == 0);
@@ -63,29 +64,33 @@ void testComplexEDL() {
 		
 		// Test first clip with fades
 		const auto& clip1 = edl.clips[0];
-		assert(std::holds_alternative<edl::MediaSource>(clip1.source));
-		const auto& mediaSource1 = std::get<edl::MediaSource>(clip1.source);
+		assert(clip1.source.has_value());
+		assert(std::holds_alternative<edl::MediaSource>(clip1.source.value()));
+		const auto& mediaSource1 = std::get<edl::MediaSource>(clip1.source.value());
 		assert(mediaSource1.uri == "clip1.mp4");
 		assert(clip1.topFade == 1.0f);
 		assert(clip1.tailFade == 0.5f);
 		
 		// Test second clip with motion and transition
 		const auto& clip2 = edl.clips[1];
-		assert(std::holds_alternative<edl::MediaSource>(clip2.source));
-		const auto& mediaSource2 = std::get<edl::MediaSource>(clip2.source);
+		assert(clip2.source.has_value());
+		assert(std::holds_alternative<edl::MediaSource>(clip2.source.value()));
+		const auto& mediaSource2 = std::get<edl::MediaSource>(clip2.source.value());
 		assert(mediaSource2.uri == "clip2.mp4");
 		assert(clip2.motion.panX == 0.1f);
 		assert(clip2.motion.panY == -0.1f);
 		assert(clip2.motion.zoomX == 1.2f);
 		assert(clip2.motion.zoomY == 1.2f);
 		assert(clip2.motion.rotation == 5.0f);
-		assert(clip2.transition.type == "dissolve");
-		assert(clip2.transition.duration == 1.0);
+		assert(clip2.transition.has_value());
+		assert(clip2.transition->type == "dissolve");
+		assert(clip2.transition->duration == 1.0);
 		
 		// Test third clip
 		const auto& clip3 = edl.clips[2];
-		assert(std::holds_alternative<edl::MediaSource>(clip3.source));
-		const auto& mediaSource3 = std::get<edl::MediaSource>(clip3.source);
+		assert(clip3.source.has_value());
+		assert(std::holds_alternative<edl::MediaSource>(clip3.source.value()));
+		const auto& mediaSource3 = std::get<edl::MediaSource>(clip3.source.value());
 		assert(mediaSource3.uri == "clip3.mp4");
 		assert(clip3.tailFade == 2.0f);
 		
@@ -131,8 +136,9 @@ void testInlineJSON() {
 		assert(edl.clips.size() == 1);
 		
 		const auto& clip = edl.clips[0];
-		assert(std::holds_alternative<edl::MediaSource>(clip.source));
-		const auto& mediaSource = std::get<edl::MediaSource>(clip.source);
+		assert(clip.source.has_value());
+		assert(std::holds_alternative<edl::MediaSource>(clip.source.value()));
+		const auto& mediaSource = std::get<edl::MediaSource>(clip.source.value());
 		assert(mediaSource.in == 5.5);
 		assert(mediaSource.out == 15.5);
 		

@@ -285,11 +285,11 @@ int main(int argc, char* argv[]) {
 			}
 			
 			// Check if this is a media source (skip effect sources)
-			if (!std::holds_alternative<edl::MediaSource>(clip.source)) {
+			if (!clip.source.has_value() || !std::holds_alternative<edl::MediaSource>(clip.source.value())) {
 				continue;
 			}
 			
-			const auto& mediaSource = std::get<edl::MediaSource>(clip.source);
+			const auto& mediaSource = std::get<edl::MediaSource>(clip.source.value());
 			const std::string& uri = mediaSource.uri;
 			if (decoders.find(uri) == decoders.end()) {
 				std::string mediaPath = getMediaPath(uri, opts.edlFile);

@@ -83,20 +83,89 @@ CompositorInstruction InstructionGenerator::createInstruction(const edl::Clip& c
 	int frameNumber) {
 	
 	CompositorInstruction instruction;
-	instruction.type = CompositorInstruction::DrawFrame;
 	instruction.trackNumber = clip.track.number;
 	
-	// Get URI from MediaSource if available
-	if (std::holds_alternative<edl::MediaSource>(clip.source)) {
-		const auto& mediaSource = std::get<edl::MediaSource>(clip.source);
-		instruction.uri = mediaSource.uri;
-		instruction.flip = mediaSource.flip;
+	// Handle null clips (track alignment)
+	if (clip.isNullClip) {
+		instruction.type = CompositorInstruction::GenerateColor;
+		instruction.color.r = 0.0f;
+		instruction.color.g = 0.0f;
+		instruction.color.b = 0.0f;
+		return instruction;
+	}
+	
+	// Handle different source types
+	if (clip.source.has_value()) {
+		const auto& source = clip.source.value();
+		
+		if (std::holds_alternative<edl::MediaSource>(source)) {
+			// Media source - regular video/audio file
+			const auto& mediaSource = std::get<edl::MediaSource>(source);
+			instruction.type = CompositorInstruction::DrawFrame;
+			instruction.uri = mediaSource.uri;
+			// Note: flip field doesn't exist in MediaSource anymore
+			// instruction.flip = mediaSource.flip;
+		} else if (std::holds_alternative<edl::GenerateSource>(source)) {
+			// Generated source (black, color, test pattern)
+			const auto& genSource = std::get<edl::GenerateSource>(source);
+			if (genSource.type == edl::GenerateSource::Black) {
+				instruction.type = CompositorInstruction::GenerateColor;
+				instruction.color.r = 0.0f;
+				instruction.color.g = 0.0f;
+				instruction.color.b = 0.0f;
+			} else {
+				// Other generate types not yet implemented
+				utils::Logger::warn("Unsupported generate type, using black");
+				instruction.type = CompositorInstruction::GenerateColor;
+				instruction.color.r = 0.0f;
+				instruction.color.g = 0.0f;
+				instruction.color.b = 0.0f;
+			}
+		} else if (std::holds_alternative<edl::EffectSource>(source)) {
+			// Effect source - handled separately
+			instruction.type = CompositorInstruction::NoOp;
+			instruction.uri = "";
+		} else if (std::holds_alternative<edl::TransformSource>(source)) {
+			// Transform source - handled as overlay
+			instruction.type = CompositorInstruction::NoOp;
+			instruction.uri = "";
+		} else if (std::holds_alternative<edl::SubtitleSource>(source)) {
+			// Subtitle - not yet rendered
+			instruction.type = CompositorInstruction::NoOp;
+			instruction.uri = "";
+			utils::Logger::debug("Subtitle rendering not yet implemented");
+		} else {
+			// Unknown source type
+			instruction.type = CompositorInstruction::NoOp;
+			instruction.uri = "";
+		}
+	} else if (!clip.sources.empty()) {
+		// Handle sources array (only single element supported)
+		const auto& source = clip.sources[0];
+		
+		if (std::holds_alternative<edl::MediaSource>(source)) {
+			const auto& mediaSource = std::get<edl::MediaSource>(source);
+			instruction.type = CompositorInstruction::DrawFrame;
+			instruction.uri = mediaSource.uri;
+		} else if (std::holds_alternative<edl::GenerateSource>(source)) {
+			const auto& genSource = std::get<edl::GenerateSource>(source);
+			if (genSource.type == edl::GenerateSource::Black) {
+				instruction.type = CompositorInstruction::GenerateColor;
+				instruction.color.r = 0.0f;
+				instruction.color.g = 0.0f;
+				instruction.color.b = 0.0f;
+			}
+		} else {
+			instruction.type = CompositorInstruction::NoOp;
+			instruction.uri = "";
+		}
 	} else {
-		// Effect source - no URI
+		// No source - should not happen with proper validation
+		instruction.type = CompositorInstruction::NoOp;
 		instruction.uri = "";
 	}
 	
-	// Calculate source frame number
+	// Calculate source frame number (only for media sources)
 	instruction.sourceFrameNumber = getSourceFrameNumber(clip, frameNumber);
 	
 	// Apply motion parameters
@@ -126,16 +195,16 @@ CompositorInstruction InstructionGenerator::createInstruction(const edl::Clip& c
 	}
 	
 	// Handle transition
-	if (!clip.transition.type.empty() && clip.transition.duration > 0) {
-		if (positionInClip < clip.transition.duration) {
-			instruction.transition.duration = static_cast<float>(clip.transition.duration);
-			instruction.transition.progress = static_cast<float>(positionInClip / clip.transition.duration);
+	if (clip.transition.has_value() && !clip.transition->type.empty() && clip.transition->duration > 0) {
+		if (positionInClip < clip.transition->duration) {
+			instruction.transition.duration = static_cast<float>(clip.transition->duration);
+			instruction.transition.progress = static_cast<float>(positionInClip / clip.transition->duration);
 			
-			if (clip.transition.type == "dissolve") {
+			if (clip.transition->type == "dissolve") {
 				instruction.transition.type = TransitionInfo::Dissolve;
-			} else if (clip.transition.type == "wipe") {
+			} else if (clip.transition->type == "wipe") {
 				instruction.transition.type = TransitionInfo::Wipe;
-			} else if (clip.transition.type == "slide") {
+			} else if (clip.transition->type == "slide") {
 				instruction.transition.type = TransitionInfo::Slide;
 			}
 		}
@@ -165,10 +234,25 @@ const edl::Clip* InstructionGenerator::findClipAtFrame(int frameNumber,
 	
 	double frameTime = frameToTime(frameNumber);
 	
+	// First check organized tracks if available
+	if (!edl.tracks.empty()) {
+		// Look for the main video track
+		std::string trackKey = "video_" + std::to_string(trackNumber);
+		auto it = edl.tracks.find(trackKey);
+		if (it != edl.tracks.end()) {
+			for (const auto& clip : it->second) {
+				if (frameTime >= clip.in && frameTime < clip.out) {
+					return &clip;
+				}
+			}
+		}
+	}
+	
+	// Fall back to searching through all clips
 	for (const auto& clip : edl.clips) {
 		if (clip.track.type == edl::Track::Video &&
 			clip.track.number == trackNumber &&
-			clip.track.subtype != "effects" &&  // Skip effect clips
+			clip.track.subtype.empty() &&  // Main video track has no subtype
 			frameTime >= clip.in &&
 			frameTime < clip.out) {
 			return &clip;
@@ -187,18 +271,31 @@ int64_t InstructionGenerator::getSourceFrameNumber(const edl::Clip& clip,
 	// Calculate position within the clip
 	double positionInClip = timelineTime - clip.in;
 	
-	// Check if source is a MediaSource (only media sources have frame numbers)
-	if (std::holds_alternative<edl::MediaSource>(clip.source)) {
-		const auto& mediaSource = std::get<edl::MediaSource>(clip.source);
-		// Calculate source time
-		double sourceTime = mediaSource.in + positionInClip;
-		// Convert to source frame number
-		// If source has different fps, use it; otherwise use EDL fps
-		int sourceFps = mediaSource.fps > 0 ? mediaSource.fps : edl.fps;
-		return static_cast<int64_t>(sourceTime * sourceFps);
+	// Check source or sources array
+	const edl::Source* sourcePtr = nullptr;
+	if (clip.source.has_value()) {
+		sourcePtr = &clip.source.value();
+	} else if (!clip.sources.empty()) {
+		sourcePtr = &clip.sources[0];
 	}
 	
-	return 0;  // Effect sources don't have frame numbers
+	if (sourcePtr) {
+		// Check if source is a MediaSource (only media sources have frame numbers)
+		if (std::holds_alternative<edl::MediaSource>(*sourcePtr)) {
+			const auto& mediaSource = std::get<edl::MediaSource>(*sourcePtr);
+			// Calculate source time
+			double sourceTime = mediaSource.in + positionInClip;
+			// Convert to source frame number
+			// If source has different fps, use it; otherwise use EDL fps
+			int sourceFps = mediaSource.fps > 0 ? mediaSource.fps : edl.fps;
+			return static_cast<int64_t>(sourceTime * sourceFps);
+		} else if (std::holds_alternative<edl::GenerateSource>(*sourcePtr)) {
+			// Generated sources use timeline frame directly
+			return timelineFrame;
+		}
+	}
+	
+	return 0;  // Effect sources and others don't have frame numbers
 }
 
 double InstructionGenerator::frameToTime(int frameNumber) const {
@@ -230,28 +327,57 @@ const edl::Clip* InstructionGenerator::findEffectClipAtFrame(int frameNumber,
 void InstructionGenerator::applyEffectClip(CompositorInstruction& instruction,
 	const edl::Clip& effectClip, int frameNumber) {
 	
-	// Check if source is an EffectSource
-	if (!std::holds_alternative<edl::EffectSource>(effectClip.source)) {
+	// Check source or sources array for EffectSource
+	const edl::Source* sourcePtr = nullptr;
+	if (effectClip.source.has_value()) {
+		sourcePtr = &effectClip.source.value();
+	} else if (!effectClip.sources.empty()) {
+		sourcePtr = &effectClip.sources[0];
+	}
+	
+	if (!sourcePtr || !std::holds_alternative<edl::EffectSource>(*sourcePtr)) {
 		return;
 	}
 	
-	const auto& effectSource = std::get<edl::EffectSource>(effectClip.source);
+	const auto& effectSource = std::get<edl::EffectSource>(*sourcePtr);
 	double frameTime = frameToTime(frameNumber);
 	double timeInClip = frameTime - effectClip.in;
 	
-	// Process insideMaskFilters (for now, apply to entire frame)
-	for (const auto& filter : effectSource.insideMaskFilters) {
-		if (filter.type == "brightness") {
+	// Handle simple effects with "value" field (brightness, contrast)
+	auto valueIt = effectSource.data.find("value");
+	if (valueIt != effectSource.data.end()) {
+		if (std::holds_alternative<double>(valueIt->second)) {
+			double value = std::get<double>(valueIt->second);
+			
 			Effect effect;
-			effect.type = Effect::Brightness;
-			effect.useLinearMapping = true;
-			effect.linearMapping = interpolateLinearMapping(filter, timeInClip);
+			if (effectSource.type == "brightness") {
+				effect.type = Effect::Brightness;
+				effect.strength = static_cast<float>(value);
+			} else if (effectSource.type == "contrast") {
+				effect.type = Effect::Contrast;
+				effect.strength = static_cast<float>(value);
+			} else if (effectSource.type == "saturation") {
+				effect.type = Effect::Saturation;
+				effect.strength = static_cast<float>(value);
+			}
 			instruction.effects.push_back(effect);
 		}
-		// Add other filter types as needed
 	}
+	
+	// Handle filters if present (stored as JSON string in data map)
+	auto filtersIt = effectSource.data.find("filters_json");
+	if (filtersIt != effectSource.data.end()) {
+		// Filters would need to be parsed from JSON string
+		// For now, log that filters are present but not implemented
+		utils::Logger::debug("Effect has filters which are not yet implemented");
+	}
+	
+	// Note: Complex filter processing with linear mappings would go here
+	// For now we support simple value-based effects
 }
 
+// Filter interpolation not yet implemented
+/*
 std::vector<LinearMapping> InstructionGenerator::interpolateLinearMapping(
 	const edl::Filter& filter, double timeInClip) {
 	
@@ -315,5 +441,6 @@ std::vector<LinearMapping> InstructionGenerator::interpolateLinearMapping(
 	
 	return result;
 }
+*/
 
 } // namespace compositor

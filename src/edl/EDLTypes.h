@@ -4,8 +4,16 @@
 #include <vector>
 #include <optional>
 #include <variant>
+#include <map>
 
 namespace edl {
+
+// Exceptions for EDL parsing errors
+class InvalidEdlException : public std::runtime_error {
+public:
+	explicit InvalidEdlException(const std::string& message)
+		: std::runtime_error("Invalid EDL: " + message) {}
+};
 
 struct Motion {
 	float panX = 0.0f;     // -1 to 1
@@ -13,11 +21,14 @@ struct Motion {
 	float zoomX = 1.0f;    // zoom factor
 	float zoomY = 1.0f;    // zoom factor
 	float rotation = 0.0f; // degrees
+	double offset = 0.0;   // Motion offset in seconds
+	double duration = 0.0; // Motion duration in seconds
 };
 
 struct Transition {
 	std::string type;      // "dissolve", "wipe", etc.
 	double duration = 0.0;
+	std::map<std::string, std::variant<bool, int, double, std::string>> parameters;
 };
 
 // Linear mapping for transfer functions
@@ -56,41 +67,94 @@ struct ShapeControlPoint {
 	float shape = 1.0f;      // Shape parameter (1 = rectangle)
 };
 
-// Media source (existing)
+// Media source (from file/URI)
 struct MediaSource {
 	std::string uri;       // URI/path to the media file (publishing EDL format)
-	std::string trackId;   // "V1", "A1", etc.
 	double in = 0.0;       // Source timecode in seconds
 	double out = 0.0;      // Source timecode in seconds
 	
 	// Optional
+	std::string trackId;   // "V1", "A1", etc.
 	int width = 0;
 	int height = 0;
 	int fps = 0;
-	float rotation = 0.0f;
-	bool flip = false;
+	float speed = 1.0f;    // Speed factor
+	float gamma = 1.0f;    // Gamma correction
+	std::string audiomix;  // Audio mix mode ("avg" etc.)
 };
 
-// Effect source (new)
+// Generate source (for black frames, test patterns, etc.)
+struct GenerateSource {
+	enum Type {
+		Black,
+		Colour,
+		TestPattern,
+		Demo
+	};
+	
+	Type type = Black;
+	double in = 0.0;       // Start time
+	double out = 0.0;      // End time
+	int width = 1920;      // Required for generated sources
+	int height = 1080;     // Required for generated sources
+	
+	// Type-specific parameters
+	std::map<std::string, std::variant<int, float, std::string>> parameters;
+};
+
+// Location source (reference to external location)
+struct LocationSource {
+	std::string id;        // Location identifier
+	std::string type;      // Location type
+	double in = 0.0;
+	double out = 0.0;
+	std::map<std::string, std::variant<int, float, std::string>> parameters;
+};
+
+// Effect source (for effects tracks)
 struct EffectSource {
-	std::string type;                           // "highlight", etc.
+	std::string type;                           // "brightness", "contrast", "highlight", etc.
 	double in = 0.0;                           // Start time
 	double out = 0.0;                          // End time
-	std::vector<Filter> insideMaskFilters;     // Filters inside mask
-	std::vector<Filter> outsideMaskFilters;    // Filters outside mask
-	std::vector<ShapeControlPoint> controlPoints; // Mask shape control
-	std::string interpolation = "linear";       // Interpolation type
+	
+	// Effect-specific fields (stored as generic data for flexibility)
+	// Common fields: value (for brightness/contrast), filters, controlPoints
+	std::map<std::string, std::variant<double, std::string, std::vector<Filter>, std::vector<ShapeControlPoint>>> data;
 };
 
-// Use variant to support both media and effect sources
-using Source = std::variant<MediaSource, EffectSource>;
+// Transform source (for transform/pan/level tracks)
+struct TransformSource {
+	double in = 0.0;
+	double out = 0.0;
+	std::vector<ShapeControlPoint> controlPoints;
+};
+
+// Subtitle source
+struct SubtitleSource {
+	std::string text;
+	double in = 0.0;
+	double out = 0.0;
+};
+
+// Use variant to support all source types
+using Source = std::variant<MediaSource, GenerateSource, LocationSource, EffectSource, TransformSource, SubtitleSource>;
 
 struct Track {
-	enum Type { Video, Audio, Subtitle, Caption };
+	enum Type { Video, Audio, Subtitle, Caption, Burnin };
 	Type type = Video;
 	int number = 1;
-	std::string subtype;   // "transform", "effects", etc.
-	int subnumber = 0;
+	std::string subtype;   // "transform", "effects", "colour", "pan", "level", etc.
+	int subnumber = 1;     // Default to 1 per reference
+};
+
+// Text formatting for subtitles/burnin
+struct TextFormat {
+	std::string font = "";
+	int fontSize = 24;
+	std::string halign = "middle";  // "left", "middle", "right"
+	std::string valign = "bottom";  // "top", "middle", "bottom"
+	std::string textAYUV = "FFFFFF";
+	std::string backAYUV = "000000";
 };
 
 // Simple effect for inline clip effects (backward compatibility)
@@ -99,18 +163,36 @@ struct SimpleEffect {
 	float strength = 1.0f;  // Simple strength value
 };
 
+// Null clip for track alignment
+struct NullClip {
+	double duration = 0.0;
+	
+	explicit NullClip(double d) : duration(d) {}
+};
+
 struct Clip {
 	double in = 0.0;       // Timeline position in seconds
 	double out = 0.0;      // Timeline position in seconds
 	Track track;
-	Source source;
 	
-	// Optional
+	// Either single source or multiple sources (but we only support single element arrays for now)
+	std::optional<Source> source;
+	std::vector<Source> sources;
+	
+	// Optional fields
 	float topFade = 0.0f;
 	float tailFade = 0.0f;
+	std::string topFadeYUV;   // YUV color for fade in
+	std::string tailFadeYUV;  // YUV color for fade out
 	Motion motion;
-	Transition transition;
+	std::optional<Transition> transition;
+	std::optional<TextFormat> textFormat;
+	std::map<int, double> channelMap;  // Audio channel mapping
+	int sync = 0;             // Sync group
 	std::vector<SimpleEffect> effects;  // Simple inline effects (backward compat)
+	
+	// Internal use
+	bool isNullClip = false;  // True if this is a null clip for alignment
 };
 
 struct EDL {
@@ -118,6 +200,10 @@ struct EDL {
 	int width = 1920;
 	int height = 1080;
 	std::vector<Clip> clips;
+	
+	// Track management (internal use)
+	std::map<std::string, std::vector<Clip>> tracks;  // Organized by track key
+	std::map<std::string, std::string> fxAppliesTo;   // Maps fx tracks to their parent tracks
 };
 
 } // namespace edl
