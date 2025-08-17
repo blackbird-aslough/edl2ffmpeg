@@ -319,6 +319,70 @@ make
 # Maximum optimization for local CPU
 ```
 
+## Nix Development Environment
+
+This project uses Nix for reproducible development environments with lorri + direnv for automatic environment loading and caching.
+
+### Environment Setup
+- **lorri**: Provides cached nix-shell environments for faster loading
+- **direnv**: Automatically loads the environment when entering the project directory
+- **Configuration**: `.envrc` file with `use nix` directive
+
+### Detecting Nix Environment
+To check if you're in the Nix development environment:
+```bash
+# Check for IN_NIX_SHELL environment variable
+if [[ -n "$IN_NIX_SHELL" ]]; then
+    echo "In Nix shell"
+fi
+
+# Check if FFmpeg libraries are available
+pkg-config --modversion libavcodec  # Should show version if in Nix shell
+```
+
+### Building in Nix Environment
+When in the Nix environment (automatically loaded by direnv):
+```bash
+# Dependencies are already available, just build normally
+mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j$(nproc)
+```
+
+If NOT in Nix environment:
+```bash
+# Option 1: Use nix-shell directly
+nix-shell --run "./build-nix.sh"
+
+# Option 2: Allow direnv and reload
+direnv allow
+direnv reload
+# Then build normally
+
+# Option 3: Use the build script which detects environment
+./build-nix.sh
+```
+
+### Build Script Behavior
+The `build-nix.sh` script automatically detects if it's running in a Nix environment:
+- If IN_NIX_SHELL is set: Runs build commands directly
+- If not in Nix shell: Wraps commands with `nix-shell --run`
+
+### Common Nix Issues
+
+**Issue**: "Package libavcodec was not found" when building
+**Solution**: You're not in the Nix environment. Run `direnv allow` or use `nix-shell`
+
+**Issue**: Slow environment loading
+**Solution**: Ensure lorri daemon is running: `systemctl --user status lorri`
+
+**Issue**: Environment not loading automatically
+**Solution**: 
+```bash
+direnv allow  # Allow .envrc to be executed
+direnv reload # Force reload the environment
+```
+
 ## Contact and Resources
 
 ### Related Projects

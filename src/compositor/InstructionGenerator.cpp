@@ -341,7 +341,7 @@ void InstructionGenerator::applyEffectClip(CompositorInstruction& instruction,
 	
 	const auto& effectSource = std::get<edl::EffectSource>(*sourcePtr);
 	double frameTime = frameToTime(frameNumber);
-	double timeInClip = frameTime - effectClip.in;
+	[[maybe_unused]] double timeInClip = frameTime - effectClip.in;
 	
 	// Handle simple effects with "value" field (brightness, contrast)
 	auto valueIt = effectSource.data.find("value");

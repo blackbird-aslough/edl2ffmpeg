@@ -5,6 +5,7 @@
 #include <optional>
 #include <variant>
 #include <map>
+#include <stdexcept>
 
 namespace edl {
 
