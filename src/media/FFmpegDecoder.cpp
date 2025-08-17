@@ -2,6 +2,7 @@
 #include "media/FFmpegCompat.h"
 #include "media/HardwareAcceleration.h"
 #include "utils/Logger.h"
+#include "utils/Timer.h"
 #include <stdexcept>
 #include <algorithm>
 
@@ -88,6 +89,7 @@ FFmpegDecoder& FFmpegDecoder::operator=(FFmpegDecoder&& other) noexcept {
 }
 
 void FFmpegDecoder::openFile(const std::string& filename) {
+	TIME_BLOCK("decoder_open_file");
 	int ret = avformat_open_input(&formatCtx, filename.c_str(), nullptr, nullptr);
 	if (ret < 0) {
 		char errbuf[AV_ERROR_MAX_STRING_SIZE];
@@ -95,9 +97,12 @@ void FFmpegDecoder::openFile(const std::string& filename) {
 		throw std::runtime_error("Failed to open input file: " + std::string(errbuf));
 	}
 	
-	ret = avformat_find_stream_info(formatCtx, nullptr);
-	if (ret < 0) {
-		throw std::runtime_error("Failed to find stream info");
+	{
+		TIME_BLOCK("decoder_find_stream_info");
+		ret = avformat_find_stream_info(formatCtx, nullptr);
+		if (ret < 0) {
+			throw std::runtime_error("Failed to find stream info");
+		}
 	}
 	
 	packet = FFmpegCompat::allocPacket();
@@ -176,9 +181,9 @@ void FFmpegDecoder::setupDecoder() {
 				}
 			}
 			
-			// Create hardware device context (not needed for VideoToolbox)
+			// Create hardware device context (not needed for VideoToolbox or NVENC decoders)
 			if (usingHardware) {
-				if (hwType != HWAccelType::VideoToolbox) {
+				if (hwType != HWAccelType::VideoToolbox && hwType != HWAccelType::NVENC) {
 					hwDeviceCtx = HardwareAcceleration::initializeHardwareContext(hwType, decoderConfig.hwConfig.deviceIndex, "decoder");
 					
 					if (!hwDeviceCtx) {
@@ -186,7 +191,7 @@ void FFmpegDecoder::setupDecoder() {
 						usingHardware = false;
 					}
 				} else {
-					// VideoToolbox doesn't need explicit device context for decoding
+					// VideoToolbox and NVENC decoders don't need explicit device context
 					hwDeviceCtx = nullptr;
 				}
 			}
@@ -428,6 +433,12 @@ bool FFmpegDecoder::decodeNextHardwareFrame(AVFrame* frame) {
 }
 
 bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
+	// Add timing only for first 10 frames
+	static int decodeCount = 0;
+	if (decodeCount < 10) {
+		TIME_BLOCK(std::string("decode_frame_") + std::to_string(decodeCount++));
+	}
+	
 	// Use a temporary frame for hardware decoding
 	AVFrame* decodedFrame = frame;
 	AVFrame* hwFrame = nullptr;

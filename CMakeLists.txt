@@ -107,10 +107,16 @@ if(ENABLE_GPU)
 		# Linux - Check for NVIDIA and VAAPI
 		find_package(PkgConfig)
 		
-		# Check for CUDA/NVENC support
-		find_package(CUDA QUIET)
-		if(CUDA_FOUND)
-			message(STATUS "GPU acceleration: NVENC/NVDEC (NVIDIA CUDA found)")
+		# Check for CUDA/NVENC support in FFmpeg
+		execute_process(
+			COMMAND ffmpeg -hide_banner -hwaccels
+			OUTPUT_VARIABLE FFMPEG_HWACCELS
+			ERROR_QUIET
+			OUTPUT_STRIP_TRAILING_WHITESPACE
+		)
+		string(FIND "${FFMPEG_HWACCELS}" "cuda" CUDA_POS)
+		if(NOT ${CUDA_POS} EQUAL -1)
+			message(STATUS "GPU acceleration: NVENC/NVDEC (FFmpeg has CUDA support)")
 			add_definitions(-DHAVE_NVENC=1)
 		endif()
 		

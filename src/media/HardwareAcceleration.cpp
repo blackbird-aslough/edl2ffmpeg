@@ -72,8 +72,9 @@ AVBufferRef* HardwareAcceleration::createHWDeviceContext(HWAccelType type, int d
 	switch (type) {
 	case HWAccelType::NVENC:
 #ifdef AV_HWDEVICE_TYPE_CUDA
+		// For CUDA, pass NULL as device to use the default GPU
 		ret = av_hwdevice_ctx_create(&hwDeviceCtx, AV_HWDEVICE_TYPE_CUDA, 
-			std::to_string(deviceIndex).c_str(), nullptr, 0);
+			nullptr, nullptr, 0);
 #else
 		ret = -1;
 #endif

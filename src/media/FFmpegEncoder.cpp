@@ -2,6 +2,7 @@
 #include "media/FFmpegCompat.h"
 #include "media/HardwareAcceleration.h"
 #include "utils/Logger.h"
+#include "utils/Timer.h"
 #include <stdexcept>
 #include <thread>
 
@@ -121,8 +122,8 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 					usingHardware = true;
 					utils::Logger::info("Using hardware encoder: {}", hwCodecName);
 					
-					// Create hardware device context (not needed for VideoToolbox)
-					if (hwType != HWAccelType::VideoToolbox) {
+					// Create hardware device context (not needed for VideoToolbox or NVENC)
+					if (hwType != HWAccelType::VideoToolbox && hwType != HWAccelType::NVENC) {
 						hwDeviceCtx = HardwareAcceleration::initializeHardwareContext(hwType, config.hwConfig.deviceIndex, "encoder");
 						
 						if (!hwDeviceCtx) {
@@ -130,7 +131,7 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 							usingHardware = false;
 						}
 					} else {
-						// VideoToolbox doesn't need explicit device context
+						// VideoToolbox and NVENC don't need explicit device context for encoding
 						hwDeviceCtx = nullptr;
 					}
 				}
@@ -174,11 +175,11 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 		HWAccelType hwType = config.hwConfig.type == HWAccelType::Auto ? 
 			HardwareAcceleration::getBestAccelType() : config.hwConfig.type;
 		
-		if (hwType == HWAccelType::VideoToolbox) {
-			// VideoToolbox uses software pixel format directly
+		if (hwType == HWAccelType::VideoToolbox || hwType == HWAccelType::NVENC) {
+			// VideoToolbox and NVENC use software pixel format directly
 			// No need for hardware device context or frames context
 			codecCtx->pix_fmt = config.pixelFormat;  // Use software format (e.g., YUV420P)
-			// VideoToolbox will handle the hardware acceleration internally
+			// Hardware acceleration will be handled internally
 		} else if (hwDeviceCtx) {
 			// Other hardware accelerators need device context
 #if HAVE_HWDEVICE_API
@@ -464,6 +465,12 @@ void FFmpegEncoder::cleanup() {
 }
 
 bool FFmpegEncoder::writeFrame(AVFrame* frame) {
+	// Time the first 10 frame encodes
+	static int encodeCount = 0;
+	if (encodeCount < 10) {
+		TIME_BLOCK(std::string("encode_frame_") + std::to_string(encodeCount++));
+	}
+	
 	if (!frame || finalized) {
 		return false;
 	}
