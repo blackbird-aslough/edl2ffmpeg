@@ -181,9 +181,9 @@ void FFmpegDecoder::setupDecoder() {
 				}
 			}
 			
-			// Create hardware device context (not needed for VideoToolbox or NVENC decoders)
+			// Create hardware device context (not needed for VideoToolbox)
 			if (usingHardware) {
-				if (hwType != HWAccelType::VideoToolbox && hwType != HWAccelType::NVENC) {
+				if (hwType != HWAccelType::VideoToolbox) {
 					hwDeviceCtx = HardwareAcceleration::initializeHardwareContext(hwType, decoderConfig.hwConfig.deviceIndex, "decoder");
 					
 					if (!hwDeviceCtx) {
@@ -191,7 +191,7 @@ void FFmpegDecoder::setupDecoder() {
 						usingHardware = false;
 					}
 				} else {
-					// VideoToolbox and NVENC decoders don't need explicit device context
+					// VideoToolbox doesn't need explicit device context
 					hwDeviceCtx = nullptr;
 				}
 			}

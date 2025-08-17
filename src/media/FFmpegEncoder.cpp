@@ -122,8 +122,8 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 					usingHardware = true;
 					utils::Logger::info("Using hardware encoder: {}", hwCodecName);
 					
-					// Create hardware device context (not needed for VideoToolbox or NVENC)
-					if (hwType != HWAccelType::VideoToolbox && hwType != HWAccelType::NVENC) {
+					// Create hardware device context (not needed for VideoToolbox)
+					if (hwType != HWAccelType::VideoToolbox) {
 						hwDeviceCtx = HardwareAcceleration::initializeHardwareContext(hwType, config.hwConfig.deviceIndex, "encoder");
 						
 						if (!hwDeviceCtx) {
@@ -131,7 +131,7 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 							usingHardware = false;
 						}
 					} else {
-						// VideoToolbox and NVENC don't need explicit device context for encoding
+						// VideoToolbox doesn't need explicit device context for encoding
 						hwDeviceCtx = nullptr;
 					}
 				}
@@ -177,9 +177,14 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 		
 		if (hwType == HWAccelType::VideoToolbox || hwType == HWAccelType::NVENC) {
 			// VideoToolbox and NVENC use software pixel format directly
-			// No need for hardware device context or frames context
+			// The encoder handles GPU upload internally
 			codecCtx->pix_fmt = config.pixelFormat;  // Use software format (e.g., YUV420P)
-			// Hardware acceleration will be handled internally
+			// Set hardware device context for NVENC
+			if (hwType == HWAccelType::NVENC && hwDeviceCtx) {
+#if HAVE_HWDEVICE_API
+				codecCtx->hw_device_ctx = av_buffer_ref(hwDeviceCtx);
+#endif
+			}
 		} else if (hwDeviceCtx) {
 			// Other hardware accelerators need device context
 #if HAVE_HWDEVICE_API

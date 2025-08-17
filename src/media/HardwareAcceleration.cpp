@@ -19,66 +19,103 @@ std::vector<HWDevice> HardwareAcceleration::detectDevices() {
 	std::vector<HWDevice> devices;
 	
 #ifdef HAVE_NVENC
+	utils::Logger::debug("Detecting NVENC devices...");
 	auto nvencDevices = detectNVENC();
+	utils::Logger::debug("Found {} NVENC devices", nvencDevices.size());
 	devices.insert(devices.end(), nvencDevices.begin(), nvencDevices.end());
+#else
+	utils::Logger::debug("NVENC support not compiled in");
 #endif
 	
 #ifdef HAVE_VAAPI
+	utils::Logger::debug("Detecting VAAPI devices...");
 	auto vaapiDevices = detectVAAPI();
+	utils::Logger::debug("Found {} VAAPI devices", vaapiDevices.size());
 	devices.insert(devices.end(), vaapiDevices.begin(), vaapiDevices.end());
+#else
+	utils::Logger::debug("VAAPI support not compiled in");
 #endif
 	
 #ifdef HAVE_VIDEOTOOLBOX
+	utils::Logger::debug("Detecting VideoToolbox devices...");
 	auto vtDevices = detectVideoToolbox();
+	utils::Logger::debug("Found {} VideoToolbox devices", vtDevices.size());
 	devices.insert(devices.end(), vtDevices.begin(), vtDevices.end());
+#else
+	utils::Logger::debug("VideoToolbox support not compiled in");
 #endif
 	
+	utils::Logger::debug("Total hardware devices detected: {}", devices.size());
 	return devices;
 }
 
 HWAccelType HardwareAcceleration::getBestAccelType() {
+	utils::Logger::debug("Getting best hardware acceleration type...");
 	auto devices = detectDevices();
 	if (devices.empty()) {
+		utils::Logger::debug("No hardware devices found");
 		return HWAccelType::None;
 	}
 	
 	// Prefer NVENC > VideoToolbox > VAAPI
 	for (const auto& device : devices) {
 		if (device.type == HWAccelType::NVENC) {
+			utils::Logger::debug("Selected NVENC as best hardware acceleration");
 			return HWAccelType::NVENC;
 		}
 	}
 	
 	for (const auto& device : devices) {
 		if (device.type == HWAccelType::VideoToolbox) {
+			utils::Logger::debug("Selected VideoToolbox as best hardware acceleration");
 			return HWAccelType::VideoToolbox;
 		}
 	}
 	
 	for (const auto& device : devices) {
 		if (device.type == HWAccelType::VAAPI) {
+			utils::Logger::debug("Selected VAAPI as best hardware acceleration");
 			return HWAccelType::VAAPI;
 		}
 	}
 	
+	utils::Logger::debug("No suitable hardware acceleration found");
 	return HWAccelType::None;
 }
 
 AVBufferRef* HardwareAcceleration::createHWDeviceContext(HWAccelType type, int deviceIndex) {
+	(void)deviceIndex; // TODO: Use deviceIndex for multi-GPU support
 #if HAVE_HWDEVICE_API
 	AVBufferRef* hwDeviceCtx = nullptr;
 	int ret = 0;
 	
 	switch (type) {
-	case HWAccelType::NVENC:
-#ifdef AV_HWDEVICE_TYPE_CUDA
+	case HWAccelType::NVENC: {
+#if HAVE_HWDEVICE_API
 		// For CUDA, pass NULL as device to use the default GPU
-		ret = av_hwdevice_ctx_create(&hwDeviceCtx, AV_HWDEVICE_TYPE_CUDA, 
-			nullptr, nullptr, 0);
+		utils::Logger::debug("Creating CUDA device context...");
+		// Get the hwdevice type enum value at runtime
+		enum AVHWDeviceType cudaType = av_hwdevice_find_type_by_name("cuda");
+		if (cudaType == AV_HWDEVICE_TYPE_NONE) {
+			utils::Logger::debug("CUDA hwdevice type not found in FFmpeg");
+			ret = -1;
+		} else {
+			ret = av_hwdevice_ctx_create(&hwDeviceCtx, cudaType, 
+				nullptr, nullptr, 0);
+			if (ret < 0) {
+				char errbuf[AV_ERROR_MAX_STRING_SIZE];
+				av_strerror(ret, errbuf, sizeof(errbuf));
+				utils::Logger::debug("CUDA device creation failed: {} (code: {})", errbuf, ret);
+			} else {
+				utils::Logger::debug("CUDA device context created successfully");
+			}
+		}
 #else
+		utils::Logger::debug("Hardware device API not available in legacy FFmpeg");
 		ret = -1;
 #endif
 		break;
+	}
 		
 	case HWAccelType::VAAPI: {
 #ifdef AV_HWDEVICE_TYPE_VAAPI
@@ -111,7 +148,14 @@ AVBufferRef* HardwareAcceleration::createHWDeviceContext(HWAccelType type, int d
 		// It works directly through the codec without needing av_hwdevice_ctx_create
 		utils::Logger::debug("VideoToolbox uses implicit device context - skipping explicit creation");
 		return nullptr;  // Return nullptr to indicate no explicit context needed
-		break;
+		
+	case HWAccelType::None:
+		utils::Logger::debug("No hardware acceleration requested");
+		return nullptr;
+		
+	case HWAccelType::Auto:
+		utils::Logger::error("Auto hardware acceleration type should have been resolved before this point");
+		return nullptr;
 		
 	default:
 		utils::Logger::error("Unsupported hardware acceleration type");
@@ -136,24 +180,33 @@ AVBufferRef* HardwareAcceleration::createHWDeviceContext(HWAccelType type, int d
 
 AVPixelFormat HardwareAcceleration::getHWPixelFormat(HWAccelType type) {
 	switch (type) {
-	case HWAccelType::NVENC:
-#ifdef AV_PIX_FMT_CUDA
-		return AV_PIX_FMT_CUDA;
-#else
-		return AV_PIX_FMT_NONE;
-#endif
-	case HWAccelType::VAAPI:
+	case HWAccelType::NVENC: {
+		// Try to find CUDA pixel format at runtime
+		AVPixelFormat fmt = av_get_pix_fmt("cuda");
+		if (fmt != AV_PIX_FMT_NONE) {
+			return fmt;
+		}
+		utils::Logger::debug("CUDA pixel format not found, trying fallback formats");
+		// Fallback to other possible formats
+		fmt = av_get_pix_fmt("nv12");  // NVENC typically uses NV12
+		return fmt != AV_PIX_FMT_NONE ? fmt : AV_PIX_FMT_YUV420P;
+	}
+	case HWAccelType::VAAPI: {
 #ifdef AV_PIX_FMT_VAAPI
 		return AV_PIX_FMT_VAAPI;
 #else
-		return AV_PIX_FMT_NONE;
+		AVPixelFormat fmt = av_get_pix_fmt("vaapi");
+		return fmt != AV_PIX_FMT_NONE ? fmt : AV_PIX_FMT_NONE;
 #endif
-	case HWAccelType::VideoToolbox:
+	}
+	case HWAccelType::VideoToolbox: {
 #ifdef AV_PIX_FMT_VIDEOTOOLBOX
 		return AV_PIX_FMT_VIDEOTOOLBOX;
 #else
-		return AV_PIX_FMT_NONE;
+		AVPixelFormat fmt = av_get_pix_fmt("videotoolbox_vld");
+		return fmt != AV_PIX_FMT_NONE ? fmt : AV_PIX_FMT_NONE;
 #endif
+	}
 	default:
 		return AV_PIX_FMT_NONE;
 	}
@@ -396,9 +449,17 @@ std::vector<HWDevice> HardwareAcceleration::detectNVENC() {
 	// Try to create CUDA contexts for each GPU
 	for (int i = 0; i < 8; i++) { // Check up to 8 GPUs
 		AVBufferRef* testCtx = nullptr;
-#if HAVE_HWDEVICE_API && defined(AV_HWDEVICE_TYPE_CUDA)
-		int ret = av_hwdevice_ctx_create(&testCtx, AV_HWDEVICE_TYPE_CUDA,
-			std::to_string(i).c_str(), nullptr, 0);
+#if HAVE_HWDEVICE_API
+		// Get the hwdevice type enum value at runtime
+		enum AVHWDeviceType cudaType = av_hwdevice_find_type_by_name("cuda");
+		if (cudaType == AV_HWDEVICE_TYPE_NONE) {
+			break; // CUDA not available in this FFmpeg build
+		}
+		
+		// For CUDA, use nullptr for default device or "cuda:N" format for specific device
+		std::string deviceName = (i == 0) ? "" : ("cuda:" + std::to_string(i));
+		int ret = av_hwdevice_ctx_create(&testCtx, cudaType,
+			deviceName.empty() ? nullptr : deviceName.c_str(), nullptr, 0);
 #else
 		int ret = -1; // Not supported in legacy FFmpeg
 #endif

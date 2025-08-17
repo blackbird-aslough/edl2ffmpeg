@@ -1,4 +1,10 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import <nixpkgs> { 
+    config = {
+      allowUnfree = true;  # Enable unfree packages for CUDA support
+      cudaSupport = true;  # Enable CUDA support in packages
+    };
+  } 
+}:
 
 let
   # Detect if we're on Linux or macOS
@@ -7,6 +13,9 @@ let
   
   # Check if CUDA is available (only on Linux with NVIDIA GPU)
   cudaAvailable = isLinux && builtins.pathExists /dev/nvidia0;
+  
+  # Use regular ffmpeg-full which should have CUDA support when available
+  ffmpeg-cuda = pkgs.ffmpeg-full;
 in
 pkgs.mkShell {
   # Use gcc13 stdenv
@@ -23,8 +32,8 @@ pkgs.mkShell {
   
   # Build inputs (libraries)
   buildInputs = with pkgs; [
-    # FFmpeg and dependencies
-    ffmpeg-full
+    # FFmpeg with CUDA support if available
+    ffmpeg-cuda
     
     # JSON library
     nlohmann_json
@@ -40,12 +49,14 @@ pkgs.mkShell {
     libvdpau      # NVIDIA VDPAU
     intel-media-driver  # Intel GPU driver
     vaapiIntel    # Intel VAAPI driver
-  ] ++ pkgs.lib.optionals (cudaAvailable && (builtins.getEnv "NIXPKGS_ALLOW_UNFREE" == "1")) [
-    # NVIDIA CUDA (only if NVIDIA GPU detected and unfree packages allowed)
+  ] ++ pkgs.lib.optionals cudaAvailable [
+    # NVIDIA CUDA (only if NVIDIA GPU detected)
     cudaPackages.cuda_nvcc
     cudaPackages.cuda_cudart
     cudaPackages.cuda_cccl
     cudaPackages.cudnn
+    cudaPackages.cuda_nvrtc
+    nv-codec-headers  # NVIDIA codec headers for FFmpeg
   ] ++ pkgs.lib.optionals isDarwin [
     # macOS frameworks (VideoToolbox is built-in)
     darwin.apple_sdk.frameworks.CoreMedia
@@ -84,11 +95,13 @@ pkgs.mkShell {
     
     # Check for NVIDIA GPU/CUDA
     if [ -e /dev/nvidia0 ] || command -v nvidia-smi &> /dev/null; then
-      if [ "$NIXPKGS_ALLOW_UNFREE" = "1" ]; then
-        echo "✓ NVIDIA GPU detected (NVENC/NVDEC available)"
-      else
-        echo "⚠ NVIDIA GPU detected but CUDA packages are unfree"
-        echo "  └─ Run: export NIXPKGS_ALLOW_UNFREE=1 && nix-shell"
+      echo "✓ NVIDIA GPU detected (NVENC/NVDEC available)"
+      if command -v nvcc &> /dev/null; then
+        echo "  └─ CUDA toolkit: $(nvcc --version | grep release | sed 's/.*release //')"
+      fi
+      # Check FFmpeg CUDA support
+      if ffmpeg -hwaccels 2>&1 | grep -q cuda; then
+        echo "  └─ FFmpeg has CUDA support"
       fi
     else
       echo "✗ No NVIDIA GPU detected"
@@ -123,15 +136,20 @@ pkgs.mkShell {
   # Environment variables
   CXXFLAGS = "-I${pkgs.nlohmann_json}/include";
   PKG_CONFIG_PATH = pkgs.lib.concatStringsSep ":" ([
-    "${pkgs.ffmpeg-full}/lib/pkgconfig"
+    "${ffmpeg-cuda}/lib/pkgconfig"
   ] ++ pkgs.lib.optionals isLinux [
     "${pkgs.libva}/lib/pkgconfig"
     "${pkgs.libvdpau}/lib/pkgconfig"
   ]);
   
   # Set CUDA paths if available
-  CUDA_PATH = pkgs.lib.optionalString (cudaAvailable && (builtins.getEnv "NIXPKGS_ALLOW_UNFREE" == "1")) "${pkgs.cudaPackages.cuda_nvcc}";
+  CUDA_PATH = pkgs.lib.optionalString cudaAvailable "${pkgs.cudaPackages.cuda_nvcc}";
+  CUDA_HOME = pkgs.lib.optionalString cudaAvailable "${pkgs.cudaPackages.cuda_nvcc}";
   
   # Enable GPU support in FFmpeg
   LIBVA_DRIVER_NAME = pkgs.lib.optionalString isLinux "iHD"; # Intel driver
+  
+  # Add CUDA library paths
+  LD_LIBRARY_PATH = pkgs.lib.optionalString cudaAvailable 
+    "${pkgs.cudaPackages.cuda_cudart}/lib:${pkgs.cudaPackages.cuda_nvrtc}/lib";
 }
