@@ -121,6 +121,7 @@ backup_local_files/
 .#*
 
 # Local test files
+test_simple*.json
 test_*.json
 
 # Serena IDE
