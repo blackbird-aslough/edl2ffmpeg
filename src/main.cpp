@@ -18,6 +18,12 @@ extern "C" {
 #include <chrono>
 #include <iomanip>
 #include <variant>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/ioctl.h>
+#include <unistd.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -87,13 +93,11 @@ Options parseCommandLine(int argc, char* argv[]) {
 			try {
 				opts.bitrate = std::stoi(argv[++i]);
 			} catch (const std::invalid_argument& e) {
-				std::cerr << "Error: Invalid bitrate value: " << argv[i] << "
-";
-				return 1;
+				std::cerr << "Error: Invalid bitrate value: " << argv[i] << "\n";
+				std::exit(1);
 			} catch (const std::out_of_range& e) {
-				std::cerr << "Error: Bitrate value out of range: " << argv[i] << "
-";
-				return 1;
+				std::cerr << "Error: Bitrate value out of range: " << argv[i] << "\n";
+				std::exit(1);
 			}
 		} else if ((arg == "-p" || arg == "--preset") && i + 1 < argc) {
 			opts.preset = argv[++i];
@@ -102,13 +106,11 @@ Options parseCommandLine(int argc, char* argv[]) {
 				opts.crf = std::stoi(argv[++i]);
 				opts.bitrate = 0; // Enable CRF mode by setting bitrate to 0
 			} catch (const std::invalid_argument& e) {
-				std::cerr << "Error: Invalid CRF value: " << argv[i] << "
-";
-				return 1;
+				std::cerr << "Error: Invalid CRF value: " << argv[i] << "\n";
+				std::exit(1);
 			} catch (const std::out_of_range& e) {
-				std::cerr << "Error: CRF value out of range: " << argv[i] << "
-";
-				return 1;
+				std::cerr << "Error: CRF value out of range: " << argv[i] << "\n";
+				std::exit(1);
 			}
 		} else if (arg == "--hw-accel" && i + 1 < argc) {
 			opts.hwAccelType = argv[++i];
@@ -116,13 +118,11 @@ Options parseCommandLine(int argc, char* argv[]) {
 			try {
 				opts.hwDevice = std::stoi(argv[++i]);
 			} catch (const std::invalid_argument& e) {
-				std::cerr << "Error: Invalid hardware device index: " << argv[i] << "
-";
-				return 1;
+				std::cerr << "Error: Invalid hardware device index: " << argv[i] << "\n";
+				std::exit(1);
 			} catch (const std::out_of_range& e) {
-				std::cerr << "Error: Hardware device index out of range: " << argv[i] << "
-";
-				return 1;
+				std::cerr << "Error: Hardware device index out of range: " << argv[i] << "\n";
+				std::exit(1);
 			}
 		} else if (arg == "--hw-decode") {
 			opts.hwDecode = true;
@@ -195,22 +195,53 @@ bool requiresCPUProcessing(const compositor::CompositorInstruction& instruction)
 	return false;
 }
 
+int getTerminalWidth() {
+	int width = 80; // Default width
+#ifdef _WIN32
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
+		width = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+	}
+#else
+	struct winsize w;
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0) {
+		width = w.ws_col;
+	}
+#endif
+	return width;
+}
+
 void printProgress(int current, int total, double fps, double /*elapsed*/) {
 	double progress = (double)current / total * 100.0;
-	int barWidth = 50;
+	// Get terminal width and calculate available space for progress bar
+	int termWidth = getTerminalWidth();
+	
+	// Calculate space needed for the text parts
+	// Format: "[bar] XXX.X% (XXXXX/XXXXX frames) FPS: XXX.X ETA: XXXXs "
+	int currentDigits = std::to_string(current).length();
+	int totalDigits = std::to_string(total).length();
+	double eta = (fps > 0.001) ? (total - current) / fps : 0.0;
+	int etaDigits = std::to_string(static_cast<int>(eta)).length();
+	
+	// Reserve space for: brackets(2) + percentage(7) + frames text + FPS text + ETA text + spaces
+	int textWidth = 2 + 7 + 3 + currentDigits + 1 + totalDigits + 9 + 10 + 6 + etaDigits + 2 + 5;
+	
+	// Calculate bar width, ensure minimum of 10 characters
+	int barWidth = termWidth - textWidth;
+	if (barWidth < 10) barWidth = 10;
+	if (barWidth > 100) barWidth = 100; // Cap at reasonable maximum
+	
 	int pos = static_cast<int>(barWidth * current / total);
 	
 	// Allow pos to reach barWidth for 100% completion
 	if (pos > barWidth) pos = barWidth;
 	
-	std::cout << "[";
+	std::cout << "\r[";
 	for (int i = 0; i < barWidth; ++i) {
 		if (i < pos) std::cout << "=";
 		else if (i == pos && current < total) std::cout << ">";
 		else std::cout << " ";
 	}
-	
-	double eta = (fps > 0.001) ? (total - current) / fps : 0.0;
 	
 	std::cout << "] " << std::fixed << std::setprecision(1) << progress << "% ";
 	std::cout << "(" << current << "/" << total << " frames) ";

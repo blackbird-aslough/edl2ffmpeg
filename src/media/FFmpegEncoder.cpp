@@ -3,6 +3,7 @@
 #include "media/HardwareAcceleration.h"
 #include "utils/Logger.h"
 #include <stdexcept>
+#include <thread>
 
 extern "C" {
 #include <libavutil/opt.h>
@@ -94,7 +95,7 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	
 	// Determine codec to use
 	const AVCodec* codec = nullptr;
-	std::string codecName = config.codec;
+	codecName = config.codec;  // Store as member variable for async mode detection
 	AVCodecID codecId = AV_CODEC_ID_NONE;
 	
 	// Map codec names to IDs
@@ -248,11 +249,20 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 	// Set stream time base
 	videoStream->time_base = codecCtx->time_base;
 	
-	// Enable multi-threading for encoding - matching ftv_toffmpeg which uses -threads 0
-	// Use configured thread count or auto-detect
-	codecCtx->thread_count = config.threadCount; // 0 means auto-detect optimal thread count
-	// Don't set thread_type - let FFmpeg use its defaults to match ftv_toffmpeg
-	// codecCtx->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE; // Commented out to match reference
+	// Enable multi-threading for encoding
+	// VideoToolbox doesn't handle thread_count=0 properly, so we need to set it explicitly
+	if (codecName.find("videotoolbox") != std::string::npos && config.threadCount == 0) {
+		// For VideoToolbox, explicitly set thread count to CPU core count
+		// Apple Silicon performs best with thread count matching performance cores
+		codecCtx->thread_count = std::thread::hardware_concurrency();
+		// VideoToolbox uses dispatch queues internally, so we only need frame threading
+		codecCtx->thread_type = FF_THREAD_FRAME;
+		utils::Logger::debug("VideoToolbox encoder using {} threads", codecCtx->thread_count);
+	} else {
+		// Use configured thread count or auto-detect for other encoders
+		codecCtx->thread_count = config.threadCount; // 0 means auto-detect optimal thread count
+		codecCtx->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE; // Enable both frame and slice threading
+	}
 	
 	// Set codec-specific options
 	if (codecName == "libx264" || codecName == "libx265") {
@@ -367,12 +377,30 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 		throw std::runtime_error("Failed to allocate conversion frame buffer");
 	}
 	
-	utils::Logger::info("Encoder initialized: {}x{} @ {} fps, codec: {}, threads: {}, hardware: {}, max_b_frames: {}",
+	// Enable async mode for hardware encoders and NVENC
+	// This allows batching multiple frames for better throughput
+	if (usingHardware || codecName.find("nvenc") != std::string::npos) {
+		asyncMode = true;
+		utils::Logger::info("Async encoding enabled for {}", codecName);
+		
+		// For hardware encoders, increase buffer sizes for better batching
+		if (codecName.find("videotoolbox") != std::string::npos) {
+			// VideoToolbox benefits from larger async depth
+			av_opt_set_int(codecCtx->priv_data, "async_depth", ASYNC_QUEUE_SIZE, 0);
+		} else if (codecName.find("nvenc") != std::string::npos) {
+			// NVENC async settings
+			av_opt_set_int(codecCtx->priv_data, "delay", 0, 0); // No B-frame delay
+			av_opt_set_int(codecCtx->priv_data, "surfaces", ASYNC_QUEUE_SIZE * 2, 0);
+		}
+	}
+	
+	utils::Logger::info("Encoder initialized: {}x{} @ {} fps, codec: {}, threads: {}, hardware: {}, async: {}, max_b_frames: {}",
 		config.width, config.height,
 		(double)config.frameRate.num / config.frameRate.den,
 		codecName,
 		codecCtx->thread_count == 0 ? "auto" : std::to_string(codecCtx->thread_count),
 		usingHardware ? "yes" : "no",
+		asyncMode ? "yes" : "no",
 		codecCtx->max_b_frames);
 }
 
@@ -451,7 +479,14 @@ bool FFmpegEncoder::writeFrame(AVFrame* frame) {
 	// The encoder will handle DTS generation for B-frames
 	frameToEncode->pts = pts++;
 	
-	return encodeFrame(frameToEncode);
+	bool result = encodeFrame(frameToEncode);
+	
+	// Process async queue periodically to maintain flow
+	if (asyncMode && (pts % 4 == 0)) {
+		processEncodingQueue();
+	}
+	
+	return result;
 }
 
 bool FFmpegEncoder::writeHardwareFrame(AVFrame* frame) {
@@ -507,16 +542,35 @@ bool FFmpegEncoder::writeHardwareFrame(AVFrame* frame) {
 		}
 		
 		hwFrame->pts = pts++;
-		return encodeHardwareFrame(hwFrame);
+		bool result = encodeHardwareFrame(hwFrame);
+		
+		// Process async queue for hardware frames
+		if (asyncMode && (pts % 4 == 0)) {
+			processEncodingQueue();
+		}
+		
+		return result;
 	} else {
 		// Frame is already on GPU, encode directly
 		frame->pts = pts++;
-		return encodeHardwareFrame(frame);
+		bool result = encodeHardwareFrame(frame);
+		
+		// Process async queue for hardware frames
+		if (asyncMode && (pts % 4 == 0)) {
+			processEncodingQueue();
+		}
+		
+		return result;
 	}
 }
 
 bool FFmpegEncoder::encodeHardwareFrame(AVFrame* frame) {
-	// Encode hardware frame directly
+	// Use async encoding for hardware frames
+	if (asyncMode) {
+		return sendFrameAsync(frame);
+	}
+	
+	// Fallback to synchronous encoding
 	if (FFmpegCompat::encodeVideoFrame(codecCtx, frame, packet)) {
 		// Rescale timestamps
 		av_packet_rescale_ts(packet, codecCtx->time_base, videoStream->time_base);
@@ -544,6 +598,12 @@ bool FFmpegEncoder::encodeHardwareFrame(AVFrame* frame) {
 }
 
 bool FFmpegEncoder::encodeFrame(AVFrame* frame) {
+	// If async mode is enabled for hardware encoding, use async path
+	if (asyncMode) {
+		return sendFrameAsync(frame);
+	}
+	
+	// Synchronous encoding for software encoders
 	if (FFmpegCompat::encodeVideoFrame(codecCtx, frame, packet)) {
 		// Rescale timestamps
 		av_packet_rescale_ts(packet, codecCtx->time_base, videoStream->time_base);
@@ -586,9 +646,106 @@ bool FFmpegEncoder::flushEncoder() {
 	return true;
 }
 
+bool FFmpegEncoder::sendFrameAsync(AVFrame* frame) {
+	// Send frame to encoder without waiting for packet
+	int ret = avcodec_send_frame(codecCtx, frame);
+	
+	if (ret < 0 && ret != AVERROR(EAGAIN)) {
+		if (ret == AVERROR_EOF) {
+			return true; // Expected during flush
+		}
+		char errbuf[AV_ERROR_MAX_STRING_SIZE];
+		av_strerror(ret, errbuf, sizeof(errbuf));
+		utils::Logger::error("Error sending frame to encoder: {}", errbuf);
+		return false;
+	}
+	
+	if (ret == 0 && frame != nullptr) {
+		framesInFlight++;
+		
+		// Try to receive packets if queue is getting full
+		if (framesInFlight >= ASYNC_QUEUE_SIZE - 2) {
+			receivePacketsAsync();
+		}
+	}
+	
+	return true;
+}
+
+bool FFmpegEncoder::receivePacketsAsync() {
+	bool receivedAny = false;
+	
+	// Try to receive multiple packets
+	while (true) {
+		AVPacket* pkt = av_packet_alloc();
+		if (!pkt) {
+			break;
+		}
+		
+		int ret = avcodec_receive_packet(codecCtx, pkt);
+		
+		if (ret == AVERROR(EAGAIN)) {
+			// No more packets available right now
+			av_packet_free(&pkt);
+			break;
+		} else if (ret == AVERROR_EOF) {
+			// End of stream
+			av_packet_free(&pkt);
+			framesInFlight = 0;
+			break;
+		} else if (ret < 0) {
+			char errbuf[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, errbuf, sizeof(errbuf));
+			utils::Logger::error("Error receiving packet from encoder: {}", errbuf);
+			av_packet_free(&pkt);
+			break;
+		}
+		
+		// Got a packet, write it
+		av_packet_rescale_ts(pkt, codecCtx->time_base, videoStream->time_base);
+		pkt->stream_index = videoStream->index;
+		
+		ret = av_interleaved_write_frame(formatCtx, pkt);
+		av_packet_free(&pkt);
+		
+		if (ret < 0) {
+			char errbuf[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, errbuf, sizeof(errbuf));
+			utils::Logger::error("Error writing async packet: {}", errbuf);
+			break;
+		}
+		
+		frameCount++;
+		if (framesInFlight > 0) {
+			framesInFlight--;
+		}
+		receivedAny = true;
+	}
+	
+	return receivedAny;
+}
+
+void FFmpegEncoder::processEncodingQueue() {
+	// Process the encoding queue - called periodically
+	if (asyncMode && framesInFlight > 0) {
+		receivePacketsAsync();
+	}
+}
+
 bool FFmpegEncoder::finalize() {
 	if (finalized) {
 		return true;
+	}
+	
+	// Process any remaining async frames
+	if (asyncMode) {
+		// Send flush signal
+		sendFrameAsync(nullptr);
+		
+		// Drain all remaining packets
+		while (framesInFlight > 0) {
+			receivePacketsAsync();
+		}
 	}
 	
 	// Flush encoder

@@ -48,6 +48,11 @@ private:
 	bool encodeHardwareFrame(AVFrame* frame);
 	bool flushEncoder();
 	
+	// Async encoding support
+	bool sendFrameAsync(AVFrame* frame);
+	bool receivePacketsAsync();
+	void processEncodingQueue();
+	
 	AVFormatContext* formatCtx = nullptr;
 	AVCodecContext* codecCtx = nullptr;
 	AVStream* videoStream = nullptr;
@@ -64,6 +69,12 @@ private:
 	int64_t frameCount = 0;
 	int64_t pts = 0;
 	bool finalized = false;
+	
+	// Async encoding state
+	bool asyncMode = false;
+	std::string codecName;
+	int framesInFlight = 0;
+	static constexpr int ASYNC_QUEUE_SIZE = 16;
 };
 
 } // namespace media
