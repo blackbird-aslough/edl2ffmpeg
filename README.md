@@ -98,30 +98,45 @@ The EDL file should be in JSON format with the following structure:
 	"height": 1080,
 	"clips": [
 		{
-			"source": {
-				"uri": "video.mp4",
-				"trackId": "V1",
-				"in": 0,
-				"out": 10
-			},
 			"in": 0,
 			"out": 10,
 			"track": {
 				"type": "video",
 				"number": 1
 			},
-			"topFade": 1.0,
-			"tailFade": 0.5,
-			"motion": {
-				"panX": 0,
-				"panY": 0,
-				"zoomX": 1.0,
-				"zoomY": 1.0,
-				"rotation": 0
+			"source": {
+				"uri": "video.mp4",
+				"in": 0,
+				"out": 10,
+				"width": 1920,
+				"height": 1080,
+				"fps": 30
 			},
-			"transition": {
-				"type": "dissolve",
-				"duration": 1.0
+			"topFade": 1.0,
+			"tailFade": 0.5
+		},
+		{
+			"in": 0,
+			"out": 10,
+			"track": {
+				"type": "video",
+				"number": 1,
+				"subtype": "transform"
+			},
+			"source": {
+				"in": 0,
+				"out": 10,
+				"controlPoints": [
+					{
+						"point": 0,
+						"panx": 0,
+						"pany": 0,
+						"zoomx": 1.0,
+						"zoomy": 1.0,
+						"rotate": 0,
+						"shape": 1
+					}
+				]
 			}
 		}
 	]
@@ -130,32 +145,53 @@ The EDL file should be in JSON format with the following structure:
 
 ### EDL Properties
 
-- `fps`: Frame rate of the output video
-- `width`: Width of the output video in pixels
-- `height`: Height of the output video in pixels
+- `fps`: Frame rate of the output video (optional, must be evenly divisible into the quantum rate)
+- `width`: Width of the output video in pixels (optional)
+- `height`: Height of the output video in pixels (optional)
 - `clips`: Array of clip objects
 
 ### Clip Properties
 
-- `source`: Source media information
-  - `uri`: Path to the media file (publishing EDL format)
-  - `trackId`: Track identifier (e.g., "V1" for video track 1)
+- `in`: Start time on timeline (seconds, required)
+- `out`: End time on timeline (seconds, required)
+- `track`: Track information (required)
+  - `type`: Track type ("video", "audio", "subtitle", "burnin", "caption")
+  - `number`: Track number (positive integer, 1-based)
+  - `subtype`: Optional subtype ("effects", "transform", "colour", "level", "pan")
+  - `subnumber`: Optional ordering for effects subtracks
+- `source` or `sources`: Source definition (required, can be single object or array)
   - `in`: Start time in source (seconds)
   - `out`: End time in source (seconds)
-- `in`: Start time on timeline (seconds)
-- `out`: End time on timeline (seconds)
-- `track`: Track information
-  - `type`: Track type ("video", "audio", "subtitle", "caption")
-  - `number`: Track number
-- `topFade`: Fade-in duration (seconds)
-- `tailFade`: Fade-out duration (seconds)
-- `motion`: Transform parameters
-  - `panX`, `panY`: Pan position (-1 to 1)
-  - `zoomX`, `zoomY`: Zoom factors
-  - `rotation`: Rotation in degrees
-- `transition`: Transition to next clip
-  - `type`: Transition type ("dissolve", "wipe", "slide")
-  - `duration`: Transition duration (seconds)
+  - One of:
+    - `uri`: Path/URI to media file (relative paths resolved from EDL location)
+    - `location`: Object with `id` and `type` for remote sources
+    - `generate`: Object with `type` ("black", "colour", "demo", "testpattern")
+  - Optional source properties:
+    - `width`, `height`: Source dimensions
+    - `fps`: Source frame rate
+    - `speed`: Speed factor (> 0)
+    - `gamma`: Gamma correction (video only)
+    - `trackId`: Track within source ("V1", "A1", etc.)
+    - `audiomix`: "avg" to mix all audio channels
+    - `text`: Text content (for subtitle/burnin tracks)
+- Optional clip properties:
+  - `topFade`: Fade-in duration (seconds)
+  - `tailFade`: Fade-out duration (seconds)
+  - `topFadeYUV`: Fade-in color (6-digit hex YUV)
+  - `tailFadeYUV`: Fade-out color (6-digit hex YUV)
+  - `motion`: Motion control object
+    - `offset`: Time offset
+    - `duration`: Effect duration
+    - `bezier`: Array of bezier control points
+  - `transition`: Transition to next clip
+    - `source` or `sources`: Source for transition
+    - `type`: Transition type
+    - `invert`: Boolean to invert transition
+    - `points`: Number of points
+    - `xsquares`: Grid squares
+  - `channelMap`: Audio channel mapping
+  - `textFormat`: Text formatting for subtitles/burnin
+  - `sync`: Sync ID to link related clips
 
 ## Architecture
 

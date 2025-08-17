@@ -4,12 +4,20 @@
 	"height": 1080,
 	"clips": [
 		{
+			"in": 0,
+			"out": 10,
+			"track": {
+				"type": "video",
+				"number": 1
+			},
 			"source": {
 				"uri": "test_video.mp4",
-				"trackId": "V1",
 				"in": 0,
 				"out": 10
-			},
+			}
+		}
+	]
+},
 			"in": 0,
 			"out": 10,
 			"track": {

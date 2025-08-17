@@ -1,6 +1,6 @@
 # EDL (Edit Decision List) Format Documentation
 
-The EDL format used by videolib is a JSON-based structure that describes video editing instructions, including clips, transitions, effects, and audio tracks.
+The EDL format used by edl2ffmpeg is a JSON-based structure that describes video editing instructions, including clips, transitions, effects, and audio tracks. This format is based on the Blackbird publishing EDL format.
 
 ## Basic Structure
 
@@ -15,25 +15,28 @@ The EDL format used by videolib is a JSON-based structure that describes video e
 
 ## Clip Structure
 
-Each clip in the `clips` array has:
+Each clip in the `clips` array must have:
 
 ```json
 {
-	"in": number,         // Start time in seconds
-	"out": number,        // End time in seconds
-	"track": {...},       // Track definition
-	"sync": number,       // Optional sync ID
-	"source": {...},      // Source definition (or "sources" array)
-
-	// Optional properties:
-	"topFade": number,    // Fade in duration
-	"tailFade": number,   // Fade out duration
-	"motion": {...},      // Motion effects
-	"transition": {...},  // Transition definition
-	"channelMap": {...},  // Audio channel mapping
-	"font": string        // Font specification
+	"in": number,         // Start time in seconds (required)
+	"out": number,        // End time in seconds (required) 
+	"track": {...},       // Track definition (required)
+	"source": {...}       // Source definition (or "sources" array) (required)
 }
 ```
+
+Optional clip properties:
+- `sync`: Sync ID to link related clips
+- `topFade`: Fade in duration (seconds)
+- `tailFade`: Fade out duration (seconds)
+- `topFadeYUV`: Fade in color (6-digit hex YUV, video only)
+- `tailFadeYUV`: Fade out color (6-digit hex YUV, video only)
+- `motion`: Motion control object
+- `transition`: Transition definition
+- `channelMap`: Audio channel mapping (audio only)
+- `font`/`fonts`: Font specification (video only)
+- `textFormat`: Text formatting (subtitle/burnin only)
 
 ## Track Types
 
@@ -41,31 +44,59 @@ Tracks define where the clip appears:
 
 ```json
 {
-	"type": "video" | "audio" | "subtitle" | "caption",
-	"number": number,     // Track number (1-based)
-	"subtype": string,    // Optional: "transform", "effects", etc.
-	"subnumber": number   // Optional: ordering for subtracks
+	"type": string,       // Required: "video", "audio", "subtitle", "burnin", "caption"
+	"number": number,     // Required: Track number (positive integer, 1-based)
+	"subtype": string,    // Optional: "effects", "transform", "colour", "level", "pan"
+	"subnumber": number   // Optional: Ordering for effects subtracks (default: 1)
 }
 ```
 
+**Notes:**
+- `caption` tracks are ignored by the parser
+- `subtype` defines the type of effect/transform track:
+  - Video subtypes: `"effects"`, `"transform"`, `"colour"`
+  - Audio subtypes: `"level"`, `"pan"`
+  - Subtitle/burnin subtypes: `"transform"`
+- `subnumber` is only used for `"effects"` subtracks to determine application order
+- If `subnumber` is specified, `subtype` must also be specified
+
 ## Source Types
 
-Sources define what content to play:
+Sources define what content to play. Each source must have `in` and `out` times, plus one of `uri`, `location`, or `generate`:
 
-### Media Source (Video/Audio)
+### Media Source (uri)
 ```json
 {
-	"mediaId": string,    // Media file identifier
-	"trackId": string,    // Track within media (e.g., "V1", "A1")
-	"in": number,         // Start time in source
-	"out": number,        // End time in source
-
+	"uri": string,        // Path/URI to media file
+	"in": number,         // Start time in source (seconds, >= 0)
+	"out": number,        // End time in source (seconds, > in)
+	
 	// Optional:
-	"width": number,
-	"height": number,
-	"fps": number,
-	"rotate": number,     // Rotation in degrees
-	"flip": boolean       // Horizontal flip
+	"width": number,      // Source width
+	"height": number,     // Source height  
+	"fps": number,        // Source frame rate
+	"speed": number,      // Speed factor (> 0)
+	"gamma": number,      // Gamma correction (video only, >= 0)
+	"trackId": string,    // Track within media ("V1", "A1", etc.)
+	"audiomix": "avg"     // Mix all audio channels (audio only)
+}
+```
+
+**Notes:**
+- URIs without a scheme are treated as local files relative to the EDL location
+- `trackId` format: "V1" for video track 1, "A1" for audio track 1, etc.
+- `audiomix: "avg"` mixes all audio channels; cannot be used with `trackId`
+
+### Location Source
+```json
+{
+	"location": {
+		"id": string,         // Location identifier
+		"type": string,       // Location type
+		// Additional location-specific properties
+	},
+	"in": number,
+	"out": number
 }
 ```
 
@@ -73,71 +104,68 @@ Sources define what content to play:
 ```json
 {
 	"generate": {
-		"type": "black" | "colour" | "demo",
+		"type": string,       // "black", "colour", "demo", "testpattern"
 		// Additional type-specific properties
 	},
 	"in": number,
-	"out": number
+	"out": number,
+	"width": number,      // Required for generated sources
+	"height": number      // Required for generated sources
 }
 ```
 
-### Text Source (Subtitles/Captions)
+### Text Source (Subtitles/Burnin)
 ```json
 {
-	"text": string,       // Text content
+	"text": string,       // Text content (or null for gap)
 	"in": number,
 	"out": number
 }
 ```
 
-### Transform Source (Pan/Zoom)
+### Transform Source (Pan/Zoom/Transform Tracks)
 ```json
 {
-	"controlPoints": [
+	"in": number,
+	"out": number,
+	"controlPoints": [    // Optional for transform tracks
 		{
-			"point": number,    // Time offset
+			"point": number,    // Time offset from start
 			"panx": number,     // Pan X (-1 to 1)
 			"pany": number,     // Pan Y (-1 to 1)
 			"zoomx": number,    // Zoom X factor
 			"zoomy": number,    // Zoom Y factor
-			"rotate": number,   // Rotation
+			"rotate": number,   // Rotation in degrees
 			"shape": number     // Shape parameter
 		}
-	],
-	"in": number,
-	"out": number
+	]
+	// Additional properties passed through as-is
 }
 ```
 
-### Effects Source
+### Colour Source (Colour Correction Tracks)
+```json
+{
+	"in": number,
+	"out": number,
+	"filters": [...],     // Required: Array of filter objects
+	"signedUV": boolean   // Optional, currently unused
+}
+```
 
-Effects sources apply visual effects like brightness, contrast, or color adjustments. They can apply filters either to the entire frame or within/outside a mask region:
+### Effects Source (Effects Subtracks)
+
+For clips on effects subtracks, the source contains effect-specific properties:
 
 ```json
 {
-	"type": string,       // Effect type (e.g., "highlight")
-	"in": number,         // Start time in source
-	"out": number,        // End time in source
-	"insideMaskFilters": [...],   // Filters applied inside mask region
-	"outsideMaskFilters": [...],  // Filters applied outside mask region
-	
-	// Optional mask/shape control:
-	"controlPoints": [    // Define mask shape and position over time
-		{
-			"point": number,       // Time offset
-			"panx": number,        // Pan X (-1 to 1)
-			"pany": number,        // Pan Y (-1 to 1)
-			"zoomx": number,       // Zoom X factor
-			"zoomy": number,       // Zoom Y factor
-			"rotate": number,      // Rotation in degrees
-			"shape": number        // Shape parameter (1 = rectangle)
-		}
-	],
-	"interpolation": "linear"  // How to interpolate between control points
+	"in": number,         // Start time (can be negative)
+	"out": number,        // End time (can be negative if reversed)
+	// Effect-specific properties vary by effect type
 }
 ```
 
-**Note:** When applying effects to the entire frame without masking, use empty `controlPoints` or omit mask-related properties. The filters in `insideMaskFilters` will apply to the entire frame.
+**Note:** The parser removes `in` and `out` from the source and passes the rest as the effect descriptor.
 
 ## Audio Control Points
 
@@ -231,21 +259,25 @@ For subtitle/caption tracks:
 
 ## Transitions
 
-Transitions between clips:
+Transitions are specified within the clip they transition from:
 
 ```json
 {
 	"transition": {
-		"source": {...},        // Second source for transition
-		"sync": number,         // Sync ID for second source
-		"type": string,         // Transition type
-		"invert": boolean,      // Invert transition direction
-		"points": number,       // Number of points
-		"xsquares": number,     // Grid squares for certain transitions
-		"channelMap": {...}     // Audio channel mapping
+		"source": {...} or "sources": [...],  // Source(s) for transition
+		"type": string,         // Transition type (video only)
+		"invert": boolean,      // Invert transition (video only)
+		"points": number,       // Number of points (video only)
+		"xsquares": number,     // Grid squares (video only)
+		"channelMap": {...},    // Audio channel mapping
+		"sync": number,         // Sync ID
+		"font": string or       // Font specification
+		"fonts": [...]          // Multiple fonts
 	}
 }
 ```
+
+**Note:** Transitions create additional tracks internally (e.g., "transition video", "audio transition 0")
 
 ## Motion Effects
 
@@ -327,66 +359,123 @@ A complete example applying a 50% brightness increase to a video clip:
 
 ## Complete Example
 
-A simple EDL with video, audio, subtitles, and zoom effect:
+A comprehensive EDL with video, audio, effects, and transforms:
 
 ```json
 {
 	"fps": 30,
-	"width": 640,
-	"height": 360,
+	"width": 1920,
+	"height": 1080,
 	"clips": [
 		{
-			"source": {
-				"mediaId": "video1",
-				"trackId": "V1",
-				"in": 0,
-				"out": 10
-			},
 			"in": 0,
 			"out": 10,
-			"track": {"type": "video", "number": 1}
+			"track": {"type": "video", "number": 1},
+			"source": {
+				"uri": "media/video1.mp4",
+				"in": 5,
+				"out": 15,
+				"trackId": "V1"
+			},
+			"topFade": 1.0,
+			"tailFade": 0.5,
+			"topFadeYUV": "808080",
+			"tailFadeYUV": "000000"
 		},
 		{
-			"source": {
-				"mediaId": "video1",
-				"trackId": "A1",
-				"in": 0,
-				"out": 10
-			},
 			"in": 0,
 			"out": 10,
-			"track": {"type": "audio", "number": 1}
+			"track": {"type": "audio", "number": 1},
+			"source": {
+				"uri": "media/video1.mp4",
+				"in": 5,
+				"out": 15,
+				"trackId": "A1"
+			},
+			"topFade": 1.0,
+			"tailFade": 0.5
 		},
 		{
-			"source": {
-				"text": "Hello World",
-				"in": 0,
-				"out": 5
-			},
 			"in": 2,
-			"out": 7,
+			"out": 8,
 			"track": {"type": "subtitle", "number": 1},
+			"source": {
+				"text": "Example Subtitle Text",
+				"in": 0,
+				"out": 6
+			},
 			"textFormat": {
+				"font": "Arial",
 				"fontSize": 24,
 				"halign": "middle",
 				"valign": "bottom"
 			}
 		},
 		{
-			"source": {
-				"controlPoints": [
-					{"point": 0, "zoom": 1},
-					{"point": 3, "zoom": 2}
-				],
-				"in": 0,
-				"out": 3
-			},
-			"in": 5,
-			"out": 8,
+			"in": 0,
+			"out": 10,
 			"track": {
 				"type": "video",
 				"number": 1,
 				"subtype": "transform"
+			},
+			"source": {
+				"in": 0,
+				"out": 10,
+				"controlPoints": [
+					{
+						"point": 0,
+						"panx": 0,
+						"pany": 0,
+						"zoomx": 1.0,
+						"zoomy": 1.0,
+						"rotate": 0,
+						"shape": 1
+					},
+					{
+						"point": 5,
+						"panx": 0.5,
+						"pany": 0,
+						"zoomx": 2.0,
+						"zoomy": 2.0,
+						"rotate": 45,
+						"shape": 1
+					}
+				]
+			}
+		},
+		{
+			"in": 0,
+			"out": 10,
+			"track": {
+				"type": "video",
+				"number": 1,
+				"subtype": "effects",
+				"subnumber": 1
+			},
+			"source": {
+				"in": 0,
+				"out": 10,
+				"type": "brightness",
+				"strength": 1.5
+			}
+		},
+		{
+			"in": 0,
+			"out": 5,
+			"track": {
+				"type": "audio",
+				"number": 1,
+				"subtype": "level"
+			},
+			"source": {
+				"in": 0,
+				"out": 5,
+				"controlPoints": [
+					{"point": 0, "db": 0},
+					{"point": 2.5, "db": -6},
+					{"point": 5, "db": "-Infinity"}
+				]
 			}
 		}
 	]
@@ -395,13 +484,43 @@ A simple EDL with video, audio, subtitles, and zoom effect:
 
 ## Notes
 
+### Key Implementation Details (from reference parser):
+
 - All times are in seconds (floating point)
 - Track numbers start at 1
-- Multiple clips can reference the same media source
+- In point must be before out point (except for reversible intervals in effects)
 - Clips on the same track cannot overlap in time
 - The `sync` property links related clips (e.g., video and audio from same source)
-- Color values use AYUV format (Alpha, Y luminance, U and V chrominance)
+- Color values use 6-digit hex YUV format
 - Transform coordinates use normalized values (-1 to 1 for pan)
+- FPS must evenly divide into the quantum rate (typically values like 24, 25, 30, 50, 60)
+- Caption tracks are silently ignored
+- Effects tracks are internally renamed to fx0, fx1, etc. based on subnumber order
+
+### Track Key Mapping:
+
+The parser converts track definitions to internal track keys:
+- Video track 1 → "video"
+- Video track 1, transform → "videopanzoomlevel"  
+- Video track 1, colour → "colour"
+- Video track 1, effects → "fx0", "fx1", etc. (ordered by subnumber)
+- Video track 2+ → "overlay0", "overlay1", etc.
+- Audio track 1 → "audio"
+- Audio track 1, level → "audiolevel"
+- Audio track 1, pan → "audiopan"
+- Audio track 2+ → "audio1", "audio2", etc.
+- Subtitle track N → "subtitle0", "subtitle1", etc.
+- Burnin track N → "burnin0", "burnin1", etc.
+
+### Parser Validation:
+
+The parser enforces:
+- Required keys must be present
+- Data types must match expected types
+- No unknown keys in strictly defined objects
+- Frame alignment and duration consistency
+- Source interval validity
+- Track continuity (gaps are filled with null clips)
 
 ## Implementation Status in edl2ffmpeg
 

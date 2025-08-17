@@ -1,0 +1,73 @@
+{
+	"fps": 30,
+	"width": 1920,
+	"height": 1080,
+	"clips": [
+		{
+			"in": 0,
+			"out": 5,
+			"track": {
+				"type": "video",
+				"number": 1
+			},
+			"source": {
+				"uri": "test_video.mp4",
+				"in": 0,
+				"out": 5,
+				"width": 1920,
+				"height": 1080
+			},
+			"topFade": 0.5,
+			"tailFade": 0.5
+		},
+		{
+			"in": 0,
+			"out": 5,
+			"track": {
+				"type": "video",
+				"number": 1,
+				"subtype": "effects",
+				"subnumber": 1
+			},
+			"source": {
+				"in": 0,
+				"out": 5,
+				"type": "brightness",
+				"value": 1.5
+			}
+		},
+		{
+			"in": 0,
+			"out": 5,
+			"track": {
+				"type": "video",
+				"number": 1,
+				"subtype": "transform"
+			},
+			"source": {
+				"in": 0,
+				"out": 5,
+				"controlPoints": [
+					{
+						"point": 0,
+						"panx": 0,
+						"pany": 0,
+						"zoomx": 1.0,
+						"zoomy": 1.0,
+						"rotate": 0,
+						"shape": 1
+					},
+					{
+						"point": 2.5,
+						"panx": 0.2,
+						"pany": 0,
+						"zoomx": 1.5,
+						"zoomy": 1.5,
+						"rotate": 0,
+						"shape": 1
+					}
+				]
+			}
+		}
+	]
+}
