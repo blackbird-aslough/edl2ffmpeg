@@ -46,6 +46,7 @@ public:
 	AVPixelFormat getPixelFormat() const { return pixelFormat; }
 	AVRational getFrameRate() const { return frameRate; }
 	int64_t getTotalFrames() const { return totalFrames; }
+	bool isUsingHardware() const { return usingHardware; }
 	
 private:
 	void openFile(const std::string& filename);

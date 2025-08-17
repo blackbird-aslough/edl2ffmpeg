@@ -340,7 +340,16 @@ int main(int argc, char* argv[]) {
 		utils::Logger::info("Processing {} frames...", totalFrames);
 		
 		// Analyze if GPU passthrough is possible
-		bool canUseGPUPassthrough = opts.hwDecode && opts.hwEncode;
+		// Check if all decoders actually have hardware enabled (not just the command line flags)
+		bool allDecodersHaveHardware = !decoders.empty();
+		for (const auto& [uri, decoder] : decoders) {
+			if (decoder && !decoder->isUsingHardware()) {
+				allDecodersHaveHardware = false;
+				break;
+			}
+		}
+		
+		bool canUseGPUPassthrough = allDecodersHaveHardware && opts.hwEncode;
 		if (canUseGPUPassthrough) {
 			// Check if any frame needs CPU processing
 			bool needsCPU = false;
@@ -367,9 +376,15 @@ int main(int argc, char* argv[]) {
 			std::shared_ptr<AVFrame> outputFrame;
 			
 			// Check if we can use GPU passthrough (no effects, transforms, or color generation)
-			bool useGPUPassthrough = opts.hwDecode && opts.hwEncode && 
-									 !requiresCPUProcessing(instruction) &&
-									 instruction.type == compositor::CompositorInstruction::DrawFrame;
+			// Must check if decoder actually has hardware enabled, not just command line flags
+			bool useGPUPassthrough = false;
+			if (instruction.type == compositor::CompositorInstruction::DrawFrame) {
+				auto it = decoders.find(instruction.uri);
+				if (it != decoders.end() && it->second) {
+					useGPUPassthrough = it->second->isUsingHardware() && opts.hwEncode && 
+										!requiresCPUProcessing(instruction);
+				}
+			}
 			
 			if (useGPUPassthrough) {
 				// GPU passthrough path - no CPU processing needed
