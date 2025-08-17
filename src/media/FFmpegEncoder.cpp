@@ -33,10 +33,10 @@ FFmpegEncoder::FFmpegEncoder(FFmpegEncoder&& other) noexcept
 	, videoStream(other.videoStream)
 	, packet(other.packet)
 	, swsCtx(other.swsCtx)
+	, convertedFrame(other.convertedFrame)
 	, hwDeviceCtx(other.hwDeviceCtx)
 	, hwFrame(other.hwFrame)
 	, usingHardware(other.usingHardware)
-	, convertedFrame(other.convertedFrame)
 	, config(other.config)
 	, frameCount(other.frameCount)
 	, pts(other.pts)
@@ -227,6 +227,13 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 #endif
 	codecCtx->bit_rate = config.bitrate;
 	codecCtx->gop_size = 300; // 300 frames GOP - matching ftv_toffmpeg default
+	
+	// Set default color properties to avoid warnings and ensure proper output
+	// These will be overridden when we receive the first frame with actual color properties
+	codecCtx->color_range = AVCOL_RANGE_MPEG; // Use MPEG/limited range by default
+	codecCtx->color_primaries = AVCOL_PRI_BT709; // HD standard
+	codecCtx->color_trc = AVCOL_TRC_BT709; // HD standard
+	codecCtx->colorspace = AVCOL_SPC_BT709; // HD standard
 	
 	// Configure B-frames based on encoder type
 	// VideoToolbox with hardware frames has PTS/DTS synchronization issues with B-frames
@@ -463,6 +470,21 @@ bool FFmpegEncoder::writeFrame(AVFrame* frame) {
 	
 	AVFrame* frameToEncode = frame;
 	
+	// Copy color properties from source frame to encoder on first frame
+	// This ensures the encoder uses the correct color range from the source
+	static bool colorPropertiesSet = false;
+	if (!colorPropertiesSet && frame->color_range != AVCOL_RANGE_UNSPECIFIED) {
+		codecCtx->color_range = frame->color_range;
+		codecCtx->color_primaries = frame->color_primaries;
+		codecCtx->color_trc = frame->color_trc;
+		codecCtx->colorspace = frame->colorspace;
+		colorPropertiesSet = true;
+		
+		const char* rangeStr = (frame->color_range == AVCOL_RANGE_JPEG) ? "full" : "limited";
+		utils::Logger::debug("Set encoder color properties from source - range: {}, primaries: {}, trc: {}, space: {}",
+			rangeStr, frame->color_primaries, frame->color_trc, frame->colorspace);
+	}
+	
 	// Convert pixel format if necessary
 	if (frame->format != config.pixelFormat ||
 		frame->width != config.width ||
@@ -490,6 +512,12 @@ bool FFmpegEncoder::writeFrame(AVFrame* frame) {
 			convertedFrame->data, convertedFrame->linesize);
 		
 		frameToEncode = convertedFrame;
+		
+		// Copy color properties to converted frame
+		convertedFrame->color_range = frame->color_range;
+		convertedFrame->color_primaries = frame->color_primaries;
+		convertedFrame->color_trc = frame->color_trc;
+		convertedFrame->colorspace = frame->colorspace;
 	}
 	
 	// Set frame pts - use presentation order
@@ -514,6 +542,21 @@ bool FFmpegEncoder::writeHardwareFrame(AVFrame* frame) {
 	if (!usingHardware) {
 		utils::Logger::warn("writeHardwareFrame called but hardware encoding is not enabled");
 		return writeFrame(frame);
+	}
+	
+	// Copy color properties from source frame to encoder on first frame
+	// This ensures the encoder uses the correct color range from the source
+	static bool hwColorPropertiesSet = false;
+	if (!hwColorPropertiesSet && frame->color_range != AVCOL_RANGE_UNSPECIFIED) {
+		codecCtx->color_range = frame->color_range;
+		codecCtx->color_primaries = frame->color_primaries;
+		codecCtx->color_trc = frame->color_trc;
+		codecCtx->colorspace = frame->colorspace;
+		hwColorPropertiesSet = true;
+		
+		const char* rangeStr = (frame->color_range == AVCOL_RANGE_JPEG) ? "full" : "limited";
+		utils::Logger::debug("Set hardware encoder color properties from source - range: {}, primaries: {}, trc: {}, space: {}",
+			rangeStr, frame->color_primaries, frame->color_trc, frame->colorspace);
 	}
 	
 	// For hardware frames, we can encode directly without transfer
@@ -545,6 +588,12 @@ bool FFmpegEncoder::writeHardwareFrame(AVFrame* frame) {
 			utils::Logger::error("Failed to get hardware buffer");
 			return false;
 		}
+		
+		// Copy color properties before transfer
+		hwFrame->color_range = frame->color_range;
+		hwFrame->color_primaries = frame->color_primaries;
+		hwFrame->color_trc = frame->color_trc;
+		hwFrame->colorspace = frame->colorspace;
 		
 		// Transfer software frame to hardware
 #if HAVE_HWDEVICE_API
