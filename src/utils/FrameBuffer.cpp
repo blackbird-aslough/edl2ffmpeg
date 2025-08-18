@@ -31,13 +31,31 @@ FrameBufferPool::FrameBufferPool(int width, int height, AVPixelFormat format,
 	, poolSize(poolSize) {
 	
 	// Pre-allocate some frames to avoid initial allocation overhead
-	if (width > 0 && height > 0 && format != AV_PIX_FMT_NONE) {
+	// Skip pre-allocation if poolSize is 0 (e.g., for hardware decoding)
+	if (width > 0 && height > 0 && format != AV_PIX_FMT_NONE && poolSize > 0) {
 		std::lock_guard<std::mutex> lock(poolMutex);
-		for (size_t i = 0; i < std::min(poolSize / 2, size_t(5)); ++i) {
-			availableFrames.push(createFrame());
+		size_t preAllocCount = std::min(poolSize / 2, size_t(5));
+		try {
+			for (size_t i = 0; i < preAllocCount; ++i) {
+				availableFrames.push(createFrame());
+			}
+			Logger::debug("Frame buffer pool initialized: {}x{}, format: {}, pre-allocated: {}",
+				width, height, format, availableFrames.size());
+		} catch (const std::exception& e) {
+			// Pre-allocation failed, but pool can still work with on-demand allocation
+			Logger::warn("Frame buffer pool pre-allocation failed: {}, will allocate on-demand", e.what());
+			// Clean up any frames that were allocated before the failure
+			while (!availableFrames.empty()) {
+				auto frame = availableFrames.front();
+				availableFrames.pop();
+				if (frame) {
+					av_frame_free(&frame);
+				}
+			}
 		}
-		Logger::debug("Frame buffer pool initialized: {}x{}, format: {}, pre-allocated: {}",
-			width, height, format, availableFrames.size());
+	} else {
+		Logger::debug("Frame buffer pool initialized: {}x{}, format: {}, pre-allocation skipped",
+			width, height, format);
 	}
 }
 

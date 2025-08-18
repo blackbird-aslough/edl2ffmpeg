@@ -277,59 +277,73 @@ std::string HardwareAcceleration::getHWEncoderName(AVCodecID codecId, HWAccelTyp
 bool HardwareAcceleration::isHardwareFrame(const AVFrame* frame) {
 	if (!frame) return false;
 	
-#if defined(AV_PIX_FMT_CUDA) || defined(AV_PIX_FMT_VAAPI) || defined(AV_PIX_FMT_VIDEOTOOLBOX) || defined(AV_PIX_FMT_QSV) || defined(AV_PIX_FMT_VULKAN)
-	switch (frame->format) {
-#ifdef AV_PIX_FMT_CUDA
-	case AV_PIX_FMT_CUDA:
-#endif
-#ifdef AV_PIX_FMT_VAAPI
-	case AV_PIX_FMT_VAAPI:
-#endif
-#ifdef AV_PIX_FMT_VIDEOTOOLBOX
-	case AV_PIX_FMT_VIDEOTOOLBOX:
-#endif
-#ifdef AV_PIX_FMT_QSV
-	case AV_PIX_FMT_QSV:
-#endif
-#ifdef AV_PIX_FMT_VULKAN
-	case AV_PIX_FMT_VULKAN:
-#endif
-		return true;
-	default:
-		return false;
+	// In newer FFmpeg versions, hardware pixel formats might not be defined as macros
+	// So we check dynamically using av_get_pix_fmt
+	static AVPixelFormat cuda_fmt = av_get_pix_fmt("cuda");
+	static AVPixelFormat vaapi_fmt = av_get_pix_fmt("vaapi");
+	static AVPixelFormat videotoolbox_fmt = av_get_pix_fmt("videotoolbox");
+	static AVPixelFormat qsv_fmt = av_get_pix_fmt("qsv");
+	static AVPixelFormat vulkan_fmt = av_get_pix_fmt("vulkan");
+	
+	// Debug: Check what format we're getting
+	static bool debugPrinted = false;
+	if (!debugPrinted) {
+		utils::Logger::debug("isHardwareFrame: checking format {} (cuda={}, vaapi={}, videotoolbox={})", 
+			frame->format, cuda_fmt, vaapi_fmt, videotoolbox_fmt);
+		debugPrinted = true;
 	}
-#else
-	(void)frame; // Suppress unused parameter warning
+	
+	// Check if the frame format matches any known hardware format
+	if (frame->format == cuda_fmt && cuda_fmt != AV_PIX_FMT_NONE) {
+		return true;
+	}
+	if (frame->format == vaapi_fmt && vaapi_fmt != AV_PIX_FMT_NONE) {
+		return true;
+	}
+	if (frame->format == videotoolbox_fmt && videotoolbox_fmt != AV_PIX_FMT_NONE) {
+		return true;
+	}
+	if (frame->format == qsv_fmt && qsv_fmt != AV_PIX_FMT_NONE) {
+		return true;
+	}
+	if (frame->format == vulkan_fmt && vulkan_fmt != AV_PIX_FMT_NONE) {
+		return true;
+	}
+	
+	// Also check if hw_frames_ctx is present - this is a strong indicator of hardware frame
+	if (frame->hw_frames_ctx) {
+		return true;
+	}
+	
 	return false;
-#endif
 }
 
 bool HardwareAcceleration::isHardwarePixelFormat(AVPixelFormat format) {
-#if defined(AV_PIX_FMT_CUDA) || defined(AV_PIX_FMT_VAAPI) || defined(AV_PIX_FMT_VIDEOTOOLBOX) || defined(AV_PIX_FMT_QSV) || defined(AV_PIX_FMT_VULKAN)
-	switch (format) {
-#ifdef AV_PIX_FMT_CUDA
-	case AV_PIX_FMT_CUDA:
-#endif
-#ifdef AV_PIX_FMT_VAAPI
-	case AV_PIX_FMT_VAAPI:
-#endif
-#ifdef AV_PIX_FMT_VIDEOTOOLBOX
-	case AV_PIX_FMT_VIDEOTOOLBOX:
-#endif
-#ifdef AV_PIX_FMT_QSV
-	case AV_PIX_FMT_QSV:
-#endif
-#ifdef AV_PIX_FMT_VULKAN
-	case AV_PIX_FMT_VULKAN:
-#endif
+	// Use the same dynamic approach as isHardwareFrame
+	static AVPixelFormat cuda_fmt = av_get_pix_fmt("cuda");
+	static AVPixelFormat vaapi_fmt = av_get_pix_fmt("vaapi");
+	static AVPixelFormat videotoolbox_fmt = av_get_pix_fmt("videotoolbox");
+	static AVPixelFormat qsv_fmt = av_get_pix_fmt("qsv");
+	static AVPixelFormat vulkan_fmt = av_get_pix_fmt("vulkan");
+	
+	// Check if the format matches any known hardware format
+	if (format == cuda_fmt && cuda_fmt != AV_PIX_FMT_NONE) {
 		return true;
-	default:
-		return false;
 	}
-#else
-	(void)format; // Suppress unused parameter warning
+	if (format == vaapi_fmt && vaapi_fmt != AV_PIX_FMT_NONE) {
+		return true;
+	}
+	if (format == videotoolbox_fmt && videotoolbox_fmt != AV_PIX_FMT_NONE) {
+		return true;
+	}
+	if (format == qsv_fmt && qsv_fmt != AV_PIX_FMT_NONE) {
+		return true;
+	}
+	if (format == vulkan_fmt && vulkan_fmt != AV_PIX_FMT_NONE) {
+		return true;
+	}
+	
 	return false;
-#endif
 }
 
 int HardwareAcceleration::transferHWFrameToSW(AVFrame* hwFrame, AVFrame* swFrame) {

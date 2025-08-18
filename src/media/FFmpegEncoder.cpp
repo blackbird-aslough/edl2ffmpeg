@@ -590,16 +590,30 @@ bool FFmpegEncoder::writeHardwareFrame(AVFrame* frame) {
 		hwFrame->width = frame->width;
 		hwFrame->height = frame->height;
 #if HAVE_HWDEVICE_API
-		hwFrame->hw_frames_ctx = av_buffer_ref(codecCtx->hw_frames_ctx);
-		
-		int ret = av_hwframe_get_buffer(codecCtx->hw_frames_ctx, hwFrame, 0);
+		// For NVENC, we don't use hw_frames_ctx, so check if it exists
+		if (codecCtx->hw_frames_ctx) {
+			hwFrame->hw_frames_ctx = av_buffer_ref(codecCtx->hw_frames_ctx);
+			
+			int ret = av_hwframe_get_buffer(codecCtx->hw_frames_ctx, hwFrame, 0);
+			if (ret < 0) {
+				utils::Logger::error("Failed to get hardware buffer");
+				return false;
+			}
+		} else {
+			// For NVENC, allocate a regular frame buffer
+			int ret = av_frame_get_buffer(hwFrame, 32);
+			if (ret < 0) {
+				utils::Logger::error("Failed to allocate frame buffer for hardware upload");
+				return false;
+			}
+		}
 #else
-		int ret = -1;
-#endif
+		int ret = av_frame_get_buffer(hwFrame, 32);
 		if (ret < 0) {
-			utils::Logger::error("Failed to get hardware buffer");
+			utils::Logger::error("Failed to allocate frame buffer");
 			return false;
 		}
+#endif
 		
 		// Copy color properties before transfer
 		hwFrame->color_range = frame->color_range;
@@ -608,12 +622,13 @@ bool FFmpegEncoder::writeHardwareFrame(AVFrame* frame) {
 		hwFrame->colorspace = frame->colorspace;
 		
 		// Transfer software frame to hardware
+		int transferRet;
 #if HAVE_HWDEVICE_API
-		ret = av_hwframe_transfer_data(hwFrame, frame, 0);
+		transferRet = av_hwframe_transfer_data(hwFrame, frame, 0);
 #else
-		ret = -1;
+		transferRet = -1;
 #endif
-		if (ret < 0) {
+		if (transferRet < 0) {
 			utils::Logger::error("Failed to transfer frame to GPU");
 			av_frame_unref(hwFrame);
 			return false;
@@ -630,6 +645,8 @@ bool FFmpegEncoder::writeHardwareFrame(AVFrame* frame) {
 		return result;
 	} else {
 		// Frame is already on GPU, encode directly
+		utils::Logger::debug("Encoding hardware frame directly - format: {}, size: {}x{}", 
+			av_get_pix_fmt_name((AVPixelFormat)frame->format), frame->width, frame->height);
 		frame->pts = pts++;
 		bool result = encodeHardwareFrame(frame);
 		
@@ -781,7 +798,13 @@ bool FFmpegEncoder::sendFrameAsync(AVFrame* frame) {
 		}
 		char errbuf[AV_ERROR_MAX_STRING_SIZE];
 		av_strerror(ret, errbuf, sizeof(errbuf));
-		utils::Logger::error("Error sending frame to encoder: {}", errbuf);
+		if (frame) {
+			utils::Logger::error("Error sending frame to encoder: {} (format: {}, size: {}x{})", 
+				errbuf, av_get_pix_fmt_name((AVPixelFormat)frame->format), 
+				frame->width, frame->height);
+		} else {
+			utils::Logger::error("Error sending frame to encoder: {}", errbuf);
+		}
 		return false;
 	}
 	

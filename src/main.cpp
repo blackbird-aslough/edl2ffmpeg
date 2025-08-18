@@ -5,6 +5,7 @@
 #include "media/FFmpegEncoder.h"
 #include "media/HardwareAcceleration.h"
 #include "utils/Logger.h"
+#include "utils/Timer.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -252,6 +253,8 @@ void printProgress(int current, int total, double fps, double /*elapsed*/) {
 
 int main(int argc, char* argv[]) {
 	try {
+		TIME_BLOCK("main_total");
+		
 		// Initialize FFmpeg (required for older versions)
 #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(58, 9, 100)
 		av_register_all();
@@ -270,65 +273,78 @@ int main(int argc, char* argv[]) {
 		}
 		
 		// Parse EDL file
-		utils::Logger::info("Parsing EDL file: {}", opts.edlFile);
-		edl::EDL edl = edl::EDLParser::parse(opts.edlFile);
+		{
+			TIME_BLOCK("edl_parsing");
+			utils::Logger::info("Parsing EDL file: {}", opts.edlFile);
+			edl::EDL edl = edl::EDLParser::parse(opts.edlFile);
 		
-		utils::Logger::info("EDL: {}x{} @ {} fps, {} clips",
-			edl.width, edl.height, edl.fps, edl.clips.size());
+			utils::Logger::info("EDL: {}x{} @ {} fps, {} clips",
+				edl.width, edl.height, edl.fps, edl.clips.size());
+		}
+		
+		// Re-parse EDL after timing block
+		edl::EDL edl = edl::EDLParser::parse(opts.edlFile);
 		
 		// Initialize decoders for all unique media files
 		std::unordered_map<std::string, std::unique_ptr<media::FFmpegDecoder>> decoders;
 		
-		for (const auto& clip : edl.clips) {
-			if (clip.track.type != edl::Track::Video) {
-				continue;
-			}
-			
-			// Check if this is a media source (skip effect sources)
-			if (!clip.source.has_value() || !std::holds_alternative<edl::MediaSource>(clip.source.value())) {
-				continue;
-			}
-			
-			const auto& mediaSource = std::get<edl::MediaSource>(clip.source.value());
-			const std::string& uri = mediaSource.uri;
-			if (decoders.find(uri) == decoders.end()) {
-				std::string mediaPath = getMediaPath(uri, opts.edlFile);
-				utils::Logger::info("Loading media: {} -> {}", uri, mediaPath);
+		{
+			TIME_BLOCK("decoder_initialization");
+			for (const auto& clip : edl.clips) {
+				if (clip.track.type != edl::Track::Video) {
+					continue;
+				}
 				
-				try {
-					// Configure decoder with hardware acceleration if requested
-					media::FFmpegDecoder::Config decoderConfig;
-					decoderConfig.useHardwareDecoder = opts.hwDecode;
-					decoderConfig.hwConfig.type = media::HardwareAcceleration::stringToHWAccelType(opts.hwAccelType);
-					decoderConfig.hwConfig.deviceIndex = opts.hwDevice;
-					decoderConfig.hwConfig.allowFallback = true;
-					// Enable GPU passthrough if both decode and encode use hardware
-					decoderConfig.keepHardwareFrames = opts.hwDecode && opts.hwEncode;
+				// Check if this is a media source (skip effect sources)
+				if (!clip.source.has_value() || !std::holds_alternative<edl::MediaSource>(clip.source.value())) {
+					continue;
+				}
+				
+				const auto& mediaSource = std::get<edl::MediaSource>(clip.source.value());
+				const std::string& uri = mediaSource.uri;
+				if (decoders.find(uri) == decoders.end()) {
+					std::string mediaPath = getMediaPath(uri, opts.edlFile);
+					utils::Logger::info("Loading media: {} -> {}", uri, mediaPath);
 					
-					decoders[uri] = std::make_unique<media::FFmpegDecoder>(mediaPath, decoderConfig);
-				} catch (const std::exception& e) {
-					utils::Logger::error("Failed to load media {}: {}", mediaPath, e.what());
-					throw;
+					try {
+						TIME_BLOCK(std::string("decoder_init_") + uri);
+						// Configure decoder with hardware acceleration if requested
+						media::FFmpegDecoder::Config decoderConfig;
+						decoderConfig.useHardwareDecoder = opts.hwDecode;
+						decoderConfig.hwConfig.type = media::HardwareAcceleration::stringToHWAccelType(opts.hwAccelType);
+						decoderConfig.hwConfig.deviceIndex = opts.hwDevice;
+						decoderConfig.hwConfig.allowFallback = true;
+						// Enable GPU passthrough if both decode and encode use hardware
+						decoderConfig.keepHardwareFrames = opts.hwDecode && opts.hwEncode;
+						
+						decoders[uri] = std::make_unique<media::FFmpegDecoder>(mediaPath, decoderConfig);
+					} catch (const std::exception& e) {
+						utils::Logger::error("Failed to load media {}: {}", mediaPath, e.what());
+						throw;
+					}
 				}
 			}
 		}
 		
 		// Setup encoder
-		media::FFmpegEncoder::Config encoderConfig;
-		encoderConfig.width = edl.width;
-		encoderConfig.height = edl.height;
-		encoderConfig.frameRate = {edl.fps, 1};
-		encoderConfig.codec = opts.codec;
-		encoderConfig.bitrate = opts.bitrate;
-		encoderConfig.preset = opts.preset;
-		encoderConfig.crf = opts.crf;
-		encoderConfig.useHardwareEncoder = opts.hwEncode;
-		encoderConfig.hwConfig.type = media::HardwareAcceleration::stringToHWAccelType(opts.hwAccelType);
-		encoderConfig.hwConfig.deviceIndex = opts.hwDevice;
-		encoderConfig.hwConfig.allowFallback = true;
-		
-		utils::Logger::info("Creating output file: {}", opts.outputFile);
-		media::FFmpegEncoder encoder(opts.outputFile, encoderConfig);
+		media::FFmpegEncoder encoder(opts.outputFile, [&]() {
+			TIME_BLOCK("encoder_initialization");
+			media::FFmpegEncoder::Config encoderConfig;
+			encoderConfig.width = edl.width;
+			encoderConfig.height = edl.height;
+			encoderConfig.frameRate = {edl.fps, 1};
+			encoderConfig.codec = opts.codec;
+			encoderConfig.bitrate = opts.bitrate;
+			encoderConfig.preset = opts.preset;
+			encoderConfig.crf = opts.crf;
+			encoderConfig.useHardwareEncoder = opts.hwEncode;
+			encoderConfig.hwConfig.type = media::HardwareAcceleration::stringToHWAccelType(opts.hwAccelType);
+			encoderConfig.hwConfig.deviceIndex = opts.hwDevice;
+			encoderConfig.hwConfig.allowFallback = true;
+			
+			utils::Logger::info("Creating output file: {}", opts.outputFile);
+			return encoderConfig;
+		}());
 		
 		// Setup compositor
 		compositor::FrameCompositor compositor(edl.width, edl.height, AV_PIX_FMT_YUV420P);
@@ -372,8 +388,17 @@ int main(int argc, char* argv[]) {
 		int frameCount = 0;
 		int progressUpdateInterval = edl.fps / 2;  // Update twice per second
 		
+		// Track timing for first few frames
+		bool trackFirstFrames = true;
+		int firstFramesToTrack = 10;
+		
 		for (const auto& instruction : generator) {
 			std::shared_ptr<AVFrame> outputFrame;
+			
+			// Time the first few frames individually
+			if (trackFirstFrames && frameCount < firstFramesToTrack) {
+				TIME_BLOCK(std::string("frame_") + std::to_string(frameCount));
+			}
 			
 			// Check if we can use GPU passthrough (no effects, transforms, or color generation)
 			// Must check if decoder actually has hardware enabled, not just command line flags
@@ -472,6 +497,11 @@ int main(int argc, char* argv[]) {
 		utils::Logger::info("Total time: {} seconds", totalTime.count());
 		utils::Logger::info("Average FPS: {}", avgFps);
 		utils::Logger::info("Output file: {}", opts.outputFile);
+		
+		// Print timing report if verbose mode is enabled
+		if (opts.verbose) {
+			utils::Timer::getInstance().printReport();
+		}
 		
 		return 0;
 		

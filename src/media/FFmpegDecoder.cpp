@@ -284,7 +284,9 @@ void FFmpegDecoder::setupDecoder() {
 	}
 	
 	// Initialize frame pool
-	framePool = utils::FrameBufferPool(width, height, poolFormat);
+	// For hardware decoding, skip pre-allocation to avoid initialization issues
+	size_t poolSize = usingHardware ? 0 : 10;
+	framePool = utils::FrameBufferPool(width, height, poolFormat, poolSize);
 	
 	utils::Logger::info("Decoder initialized: {}x{} @ {} fps, threads: {}, hardware: {}",
 		width, height, (double)frameRate.num / frameRate.den,
@@ -423,6 +425,9 @@ bool FFmpegDecoder::decodeNextHardwareFrame(AVFrame* frame) {
 			av_packet_unref(packet);
 			currentFrameNumber++;
 			// Return the hardware frame directly without transfer
+			utils::Logger::debug("Decoded hardware frame - format: {}, hw_frames_ctx: {}", 
+				av_get_pix_fmt_name((AVPixelFormat)frame->format), 
+				frame->hw_frames_ctx ? "present" : "null");
 			return true;
 		}
 		
