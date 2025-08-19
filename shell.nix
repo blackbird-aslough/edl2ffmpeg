@@ -129,7 +129,7 @@ pkgs.mkShell {
     echo "  make -j$(nproc)"
     echo ""
     echo "Or use the build script:"
-    echo "  ./build-nix.sh --clean"
+    echo "  ./scripts/build-nix.sh --clean"
     echo ""
   '';
   

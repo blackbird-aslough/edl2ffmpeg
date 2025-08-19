@@ -11,7 +11,7 @@ This project includes Nix configurations for reproducible development environmen
 nix-shell
 
 # Build the project
-./build-nix.sh
+./scripts/build-nix.sh
 
 # Or manually:
 mkdir -p build && cd build
@@ -26,7 +26,7 @@ make -j$(nproc)
 nix develop
 
 # Build the project
-./build-nix.sh
+./scripts/build-nix.sh
 
 # Or build directly with Nix
 nix build
@@ -86,20 +86,20 @@ direnv configuration that automatically loads the Nix environment and provides h
 
 ```bash
 # Using shell.nix
-nix-shell --run "./build-nix.sh --debug"
+nix-shell --run "./scripts/build-nix.sh --debug"
 
 # Using flake
-nix develop -c ./build-nix.sh --debug
+nix develop -c ./scripts/build-nix.sh --debug
 ```
 
 ### Release Build
 
 ```bash
 # Using shell.nix
-nix-shell --run "./build-nix.sh --release"
+nix-shell --run "./scripts/build-nix.sh --release"
 
 # Using flake
-nix develop -c ./build-nix.sh --release
+nix develop -c ./scripts/build-nix.sh --release
 
 # Or build as a Nix package
 nix build
@@ -109,7 +109,7 @@ nix build
 ### Clean Build
 
 ```bash
-./build-nix.sh --clean --release
+./scripts/build-nix.sh --clean --release
 ```
 
 ## Development Workflow
@@ -121,7 +121,7 @@ nix build
 
 2. **Build the project:**
    ```bash
-   ./build-nix.sh
+   ./scripts/build-nix.sh
    ```
 
 3. **Run tests:**
@@ -188,7 +188,7 @@ For GitHub Actions or other CI systems:
 ```yaml
 - uses: cachix/install-nix-action@v22
 - run: nix build
-- run: nix develop -c ./build-nix.sh --release
+- run: nix develop -c ./scripts/build-nix.sh --release
 ```
 
 ## GPU Acceleration

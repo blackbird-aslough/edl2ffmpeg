@@ -355,7 +355,7 @@ make -j$(nproc)
 If NOT in Nix environment:
 ```bash
 # Option 1: Use nix-shell directly
-nix-shell --run "./build-nix.sh"
+nix-shell --run "./scripts/build-nix.sh"
 
 # Option 2: Allow direnv and reload
 direnv allow
@@ -363,11 +363,11 @@ direnv reload
 # Then build normally
 
 # Option 3: Use the build script which detects environment
-./build-nix.sh
+./scripts/build-nix.sh
 ```
 
 ### Build Script Behavior
-The `build-nix.sh` script automatically detects if it's running in a Nix environment:
+The `scripts/build-nix.sh` script automatically detects if it's running in a Nix environment:
 - If IN_NIX_SHELL is set: Runs build commands directly
 - If not in Nix shell: Wraps commands with `nix-shell --run`
 

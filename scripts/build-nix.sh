@@ -117,6 +117,6 @@ else
 	else
 		# No nix environment detected, wrap with nix-shell
 		echo "Not in Nix environment, running with nix-shell..."
-		nix-shell --run "./build-nix.sh $*"
+		nix-shell --run "./scripts/build-nix.sh $*"
 	fi
 fi
