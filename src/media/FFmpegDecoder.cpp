@@ -469,17 +469,15 @@ std::shared_ptr<AVFrame> FFmpegDecoder::getHardwareFrame(int64_t frameNumber) {
 	}
 	
 	if (!decodeNextHardwareFrame(hwFrame.get())) {
-		utils::Logger::error("Failed to decode hardware frame {} - format: {}, hw_device_ctx: {}", 
-			frameNumber, av_get_pix_fmt_name(pixelFormat), 
-			codecCtx->hw_device_ctx ? "present" : "null");
+		utils::Logger::error("Failed to decode hardware frame {} - format: {}", 
+			frameNumber, av_get_pix_fmt_name(pixelFormat));
 		return nullptr;
 	}
 	
 	// Validate the hardware frame
 	if (!HardwareAcceleration::isHardwareFrame(hwFrame.get())) {
-		utils::Logger::error("Decoded frame {} is not a hardware frame - format: {}, hw_frames_ctx: {}", 
-			frameNumber, av_get_pix_fmt_name((AVPixelFormat)hwFrame->format),
-			hwFrame->hw_frames_ctx ? "present" : "null");
+		utils::Logger::error("Decoded frame {} is not a hardware frame - format: {}", 
+			frameNumber, av_get_pix_fmt_name((AVPixelFormat)hwFrame->format));
 		return nullptr;
 	}
 	
@@ -518,10 +516,9 @@ bool FFmpegDecoder::decodeNextHardwareFrame(AVFrame* frame) {
 			av_packet_unref(packet);
 			currentFrameNumber++;
 			// Return the hardware frame directly without transfer
-			utils::Logger::debug("Decoded hardware frame {} - format: {}, hw_frames_ctx: {}, size: {}x{}", 
+			utils::Logger::debug("Decoded hardware frame {} - format: {}, size: {}x{}", 
 				currentFrameNumber,
 				av_get_pix_fmt_name((AVPixelFormat)frame->format), 
-				frame->hw_frames_ctx ? "present" : "null",
 				frame->width, frame->height);
 			
 			// Validate frame
@@ -594,6 +591,7 @@ bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
 	// If using hardware decoding, transfer the frame to software
 	if (success && usingHardware && hwFrame) {
 		if (HardwareAcceleration::isHardwareFrame(hwFrame)) {
+#if HAVE_HWDEVICE_API
 			// First attempt direct transfer for optimal performance (works for VAAPI/NVENC)
 			int transferRet = av_hwframe_transfer_data(frame, hwFrame, 0);
 			
@@ -689,11 +687,16 @@ bool FFmpegDecoder::decodeNextFrame(AVFrame* frame) {
 						av_frame_free(&tempFrame);
 					}
 				}
-			}
+				}
 			} else {
 				// Direct transfer succeeded - copy properties
 				av_frame_copy_props(frame, hwFrame);
 			}
+#else
+			// Hardware API not available in FFmpeg 2.x - copy frame directly
+			av_frame_copy(frame, hwFrame);
+			av_frame_copy_props(frame, hwFrame);
+#endif
 		} else {
 			// Frame is already in software format (can happen with some decoders)
 			av_frame_copy(frame, hwFrame);

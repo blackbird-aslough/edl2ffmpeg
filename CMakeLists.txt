@@ -171,13 +171,15 @@ if(BUILD_TESTS)
 endif()
 
 # Test programs
-add_executable(test_nvenc_pipeline test_nvenc_pipeline.cpp)
-target_include_directories(test_nvenc_pipeline PRIVATE
-	${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-target_link_libraries(test_nvenc_pipeline PRIVATE
-	PkgConfig::LIBAV
-)
+# Note: test_nvenc_pipeline requires FFmpeg 3.2+ with hardware API support
+# Uncomment if building with modern FFmpeg
+# add_executable(test_nvenc_pipeline test_nvenc_pipeline.cpp)
+# target_include_directories(test_nvenc_pipeline PRIVATE
+# 	${CMAKE_CURRENT_SOURCE_DIR}/src
+# )
+# target_link_libraries(test_nvenc_pipeline PRIVATE
+# 	PkgConfig::LIBAV
+# )
 
 # Installation
 install(TARGETS edl2ffmpeg

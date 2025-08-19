@@ -29,6 +29,7 @@ FFmpegEncoder::~FFmpegEncoder() {
 	
 	// For async hardware encoding, ensure all operations are complete
 	if (asyncMode && usingHardware && codecCtx) {
+#if HAVE_SEND_RECEIVE_API
 		// Extra safety: drain any remaining packets
 		int safety = 0;
 		while (safety++ < 100) {
@@ -42,6 +43,7 @@ FFmpegEncoder::~FFmpegEncoder() {
 				break;
 			}
 		}
+#endif
 		
 		// Reset async state
 		framesInFlight = 0;
@@ -678,9 +680,14 @@ bool FFmpegEncoder::writeHardwareFrame(AVFrame* frame) {
 	if (frameIsHardware) {
 		// Frame is hardware, but check if it's compatible with our encoder
 		// Log the frame format for debugging
+#if HAVE_HWDEVICE_API
 		utils::Logger::debug("Input hardware frame - format: {}, has hw_frames_ctx: {}",
 			av_get_pix_fmt_name((AVPixelFormat)frame->format),
 			frame->hw_frames_ctx ? "yes" : "no");
+#else
+		utils::Logger::debug("Input hardware frame - format: {}",
+			av_get_pix_fmt_name((AVPixelFormat)frame->format));
+#endif
 		
 		// For now, assume frames from the decoder with shared context are compatible
 		// In the future, we might need to check if formats match
@@ -788,6 +795,7 @@ bool FFmpegEncoder::writeHardwareFrame(AVFrame* frame) {
 }
 
 bool FFmpegEncoder::encodeHardwareFrame(AVFrame* frame) {
+#if HAVE_SEND_RECEIVE_API
 	// Use async encoding for hardware frames
 	if (asyncMode) {
 		return sendFrameAsync(frame);
@@ -836,9 +844,15 @@ bool FFmpegEncoder::encodeHardwareFrame(AVFrame* frame) {
 	}
 	
 	return true;
+#else
+	// Hardware encoding not supported with FFmpeg 2.x
+	utils::Logger::error("Hardware encoding requires FFmpeg 3.1+");
+	return false;
+#endif
 }
 
 bool FFmpegEncoder::encodeFrame(AVFrame* frame) {
+#if HAVE_SEND_RECEIVE_API
 	// If async mode is enabled for hardware encoding, use async path
 	if (asyncMode) {
 		return sendFrameAsync(frame);
@@ -883,9 +897,26 @@ bool FFmpegEncoder::encodeFrame(AVFrame* frame) {
 	}
 	
 	return true;
+#else
+	// Use FFmpegCompat for legacy API
+	if (FFmpegCompat::encodeVideoFrame(codecCtx, frame, packet)) {
+		av_packet_rescale_ts(packet, codecCtx->time_base, videoStream->time_base);
+		packet->stream_index = videoStream->index;
+		int writeRet = av_interleaved_write_frame(formatCtx, packet);
+		av_packet_unref(packet);
+		if (writeRet < 0) {
+			utils::Logger::error("Error writing packet");
+			return false;
+		}
+		frameCount++;
+		return true;
+	}
+	return true; // No frame ready yet
+#endif
 }
 
 bool FFmpegEncoder::flushEncoder() {
+#if HAVE_SEND_RECEIVE_API
 	// Send flush signal to encoder
 	int ret = avcodec_send_frame(codecCtx, nullptr);
 	if (ret < 0 && ret != AVERROR_EOF) {
@@ -914,9 +945,24 @@ bool FFmpegEncoder::flushEncoder() {
 	}
 	
 	return true;
+#else
+	// Flush using legacy API
+	while (FFmpegCompat::encodeVideoFrame(codecCtx, nullptr, packet)) {
+		av_packet_rescale_ts(packet, codecCtx->time_base, videoStream->time_base);
+		packet->stream_index = videoStream->index;
+		int writeRet = av_interleaved_write_frame(formatCtx, packet);
+		av_packet_unref(packet);
+		if (writeRet < 0) {
+			return false;
+		}
+		frameCount++;
+	}
+	return true;
+#endif
 }
 
 bool FFmpegEncoder::sendFrameAsync(AVFrame* frame) {
+#if HAVE_SEND_RECEIVE_API
 	// Send frame to encoder without waiting for packet
 	int ret = avcodec_send_frame(codecCtx, frame);
 	
@@ -946,9 +992,15 @@ bool FFmpegEncoder::sendFrameAsync(AVFrame* frame) {
 	}
 	
 	return true;
+#else
+	// Async mode not supported with FFmpeg 2.x
+	utils::Logger::error("Async encoding requires FFmpeg 3.1+");
+	return false;
+#endif
 }
 
 bool FFmpegEncoder::receivePacketsAsync() {
+#if HAVE_SEND_RECEIVE_API && HAVE_PACKET_ALLOC_API
 	bool receivedAny = false;
 	
 	// Try to receive multiple packets
@@ -999,6 +1051,10 @@ bool FFmpegEncoder::receivePacketsAsync() {
 	}
 	
 	return receivedAny;
+#else
+	// Async mode not supported with FFmpeg 2.x
+	return false;
+#endif
 }
 
 void FFmpegEncoder::processEncodingQueue() {
@@ -1014,6 +1070,7 @@ bool FFmpegEncoder::finalize() {
 	}
 	
 	// Flush encoder
+#if HAVE_SEND_RECEIVE_API && HAVE_PACKET_ALLOC_API
 	if (asyncMode) {
 		// For async mode, first process any remaining frames in the queue
 		int flushAttempts = 0;
@@ -1074,6 +1131,10 @@ bool FFmpegEncoder::finalize() {
 		// For sync mode, use the traditional flush
 		flushEncoder();
 	}
+#else
+	// Use legacy flush for FFmpeg 2.x
+	flushEncoder();
+#endif
 	
 	// Write trailer
 	int ret = av_write_trailer(formatCtx);

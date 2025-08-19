@@ -21,6 +21,10 @@ namespace media {
 #ifndef HAVE_CODECPAR_API
 #define HAVE_CODECPAR_API (LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 37, 100))
 #endif
+#ifndef HAVE_HWDEVICE_API
+// Hardware device API was added in FFmpeg 3.2 (libavcodec 57.60.100)
+#define HAVE_HWDEVICE_API (LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 60, 100))
+#endif
 
 /**
  * Compatibility wrapper for video frame decoding
