@@ -123,6 +123,22 @@ backup_local_files/
 # Local test files
 test_simple*.json
 test_*.json
+brightness_*.json
+
+# Build directories (including internal builds)
+build-internal/
+build-*/
+
+# Debug traces and performance logs
+trace
+trace_*.txt
+timings-*
+
+# Patch files
+*.patch
+
+# Test programs
+test_nvenc_pipeline.cpp
 
 # Serena IDE
 .serena/
