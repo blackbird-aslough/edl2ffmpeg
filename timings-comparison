@@ -1,0 +1,20 @@
+--- ftv
+
+time ./scripts/ftv_toffmpeg --h264 test_simple3.json output.mp4
+real	1m0.123s
+user	5m9.912s
+sys	0m43.871s
+
+--- edl2raw w/ftv
+
+time ./build/edl2ffmpeg test_simple3.json output.mp4
+real	0m29.209s
+user	6m28.092s
+sys	0m9.295s
+
+--- edl2raw native
+
+time ./build/edl2ffmpeg test_simple3.json output.mp4
+real	0m29.669s
+user	6m37.790s
+sys	0m8.977s

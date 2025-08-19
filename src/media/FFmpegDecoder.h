@@ -17,6 +17,10 @@ public:
 		HWConfig hwConfig;
 		bool useHardwareDecoder = false;  // Enable hardware decoding
 		bool keepHardwareFrames = false;  // Keep frames on GPU (for passthrough)
+		
+		// External hardware context (optional)
+		// If provided, this context will be used instead of creating a new one
+		AVBufferRef* externalHwDeviceCtx = nullptr;
 	};
 	
 	FFmpegDecoder(const std::string& filename);
@@ -33,6 +37,7 @@ public:
 	
 	// Seek to specific frame number
 	bool seekToFrame(int64_t frameNumber);
+	bool seekToFrameHardware(int64_t frameNumber);
 	
 	// Get decoded frame
 	std::shared_ptr<AVFrame> getFrame(int64_t frameNumber);

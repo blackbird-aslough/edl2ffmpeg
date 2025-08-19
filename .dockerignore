@@ -1,0 +1,66 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Compiled objects
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Test outputs
+tests/output/
+*.log
+
+# Git
+.git/
+.gitignore
+
+# Nix
+result
+result-*
+
+# Node modules (if any)
+node_modules/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Documentation build
+docs/_build/
+docs/html/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Core dumps
+core
+core.*
+
+# Profiling data
+gmon.out
+*.prof
+*.gcda
+*.gcno
+
+# Video test files (large)
+*.mp4
+*.avi
+*.mov
+*.mkv
+!tests/sample_videos/*.mp4

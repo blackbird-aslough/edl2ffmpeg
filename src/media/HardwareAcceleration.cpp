@@ -277,6 +277,19 @@ std::string HardwareAcceleration::getHWEncoderName(AVCodecID codecId, HWAccelTyp
 bool HardwareAcceleration::isHardwareFrame(const AVFrame* frame) {
 	if (!frame) return false;
 	
+	// First check if hw_frames_ctx is present - this is the most reliable indicator
+#if HAVE_HWDEVICE_API
+	if (frame->hw_frames_ctx) {
+		static int hwFramesDebugCount = 0;
+		if (hwFramesDebugCount < 3) {
+			utils::Logger::debug("Frame has hw_frames_ctx - definitely a hardware frame (format: {})", 
+				av_get_pix_fmt_name((AVPixelFormat)frame->format));
+			hwFramesDebugCount++;
+		}
+		return true;
+	}
+#endif
+	
 	// In newer FFmpeg versions, hardware pixel formats might not be defined as macros
 	// So we check dynamically using av_get_pix_fmt
 	static AVPixelFormat cuda_fmt = av_get_pix_fmt("cuda");
@@ -286,11 +299,11 @@ bool HardwareAcceleration::isHardwareFrame(const AVFrame* frame) {
 	static AVPixelFormat vulkan_fmt = av_get_pix_fmt("vulkan");
 	
 	// Debug: Check what format we're getting
-	static bool debugPrinted = false;
-	if (!debugPrinted) {
+	static int debugCount = 0;
+	if (debugCount < 5) {  // Only print first few times to avoid spam
 		utils::Logger::debug("isHardwareFrame: checking format {} (cuda={}, vaapi={}, videotoolbox={})", 
 			frame->format, cuda_fmt, vaapi_fmt, videotoolbox_fmt);
-		debugPrinted = true;
+		debugCount++;
 	}
 	
 	// Check if the frame format matches any known hardware format
@@ -307,11 +320,6 @@ bool HardwareAcceleration::isHardwareFrame(const AVFrame* frame) {
 		return true;
 	}
 	if (frame->format == vulkan_fmt && vulkan_fmt != AV_PIX_FMT_NONE) {
-		return true;
-	}
-	
-	// Also check if hw_frames_ctx is present - this is a strong indicator of hardware frame
-	if (frame->hw_frames_ctx) {
 		return true;
 	}
 	

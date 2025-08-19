@@ -4,6 +4,7 @@
 #include "media/FFmpegDecoder.h"
 #include "media/FFmpegEncoder.h"
 #include "media/HardwareAcceleration.h"
+#include "media/HardwareContextManager.h"
 #include "utils/Logger.h"
 #include "utils/Timer.h"
 
@@ -17,6 +18,7 @@ extern "C" {
 #include <memory>
 #include <filesystem>
 #include <chrono>
+#include <thread>
 #include <iomanip>
 #include <variant>
 #ifdef _WIN32
@@ -285,6 +287,22 @@ int main(int argc, char* argv[]) {
 		// Re-parse EDL after timing block
 		edl::EDL edl = edl::EDLParser::parse(opts.edlFile);
 		
+		// Initialize shared hardware context if hardware acceleration is requested
+		AVBufferRef* sharedHwContext = nullptr;
+		if (opts.hwDecode || opts.hwEncode) {
+			media::HWConfig hwConfig;
+			hwConfig.type = media::HardwareAcceleration::stringToHWAccelType(opts.hwAccelType);
+			hwConfig.deviceIndex = opts.hwDevice;
+			hwConfig.allowFallback = true;
+			
+			if (media::HardwareContextManager::getInstance().initialize(hwConfig)) {
+				sharedHwContext = media::HardwareContextManager::getInstance().getSharedContext();
+				utils::Logger::info("Shared hardware context initialized for GPU passthrough");
+			} else {
+				utils::Logger::warn("Failed to initialize shared hardware context, components will create their own");
+			}
+		}
+		
 		// Initialize decoders for all unique media files
 		std::unordered_map<std::string, std::unique_ptr<media::FFmpegDecoder>> decoders;
 		
@@ -316,6 +334,8 @@ int main(int argc, char* argv[]) {
 						decoderConfig.hwConfig.allowFallback = true;
 						// Enable GPU passthrough if both decode and encode use hardware
 						decoderConfig.keepHardwareFrames = opts.hwDecode && opts.hwEncode;
+						// Use shared hardware context if available
+						decoderConfig.externalHwDeviceCtx = sharedHwContext;
 						
 						decoders[uri] = std::make_unique<media::FFmpegDecoder>(mediaPath, decoderConfig);
 					} catch (const std::exception& e) {
@@ -341,6 +361,10 @@ int main(int argc, char* argv[]) {
 			encoderConfig.hwConfig.type = media::HardwareAcceleration::stringToHWAccelType(opts.hwAccelType);
 			encoderConfig.hwConfig.deviceIndex = opts.hwDevice;
 			encoderConfig.hwConfig.allowFallback = true;
+			// Use shared hardware context if available
+			encoderConfig.externalHwDeviceCtx = sharedHwContext;
+			// Enable GPU passthrough mode when both decode and encode use hardware
+			encoderConfig.expectHardwareFrames = opts.hwDecode && opts.hwEncode;
 			
 			utils::Logger::info("Creating output file: {}", opts.outputFile);
 			return encoderConfig;
@@ -419,7 +443,10 @@ int main(int argc, char* argv[]) {
 					auto hwFrame = decoder->getHardwareFrame(instruction.sourceFrameNumber);
 					if (hwFrame) {
 						// Write hardware frame directly to encoder
-						encoder.writeHardwareFrame(hwFrame.get());
+						if (!encoder.writeHardwareFrame(hwFrame.get())) {
+							utils::Logger::error("Failed to write hardware frame {} to encoder", frameCount);
+							// Try to continue with next frame
+						}
 						frameCount++;
 						
 						// Update progress
@@ -431,9 +458,11 @@ int main(int argc, char* argv[]) {
 						}
 						continue;
 					} else {
-						// Fall back to CPU path if hardware frame failed
-						utils::Logger::warn("Failed to get hardware frame, falling back to CPU processing");
-						useGPUPassthrough = false;
+						// Hardware frame failed - assume we've reached EOF or encountered an error
+						utils::Logger::info("Failed to get hardware frame at output frame {} (source frame {}), stopping", 
+							frameCount, instruction.sourceFrameNumber);
+						// Stop processing
+						break;
 					}
 				}
 			}
@@ -445,6 +474,13 @@ int main(int argc, char* argv[]) {
 				if (decoder) {
 					// Get the source frame
 					auto inputFrame = decoder->getFrame(instruction.sourceFrameNumber);
+					
+					if (!inputFrame) {
+						utils::Logger::info("Failed to get frame at output frame {} (source frame {}), stopping", 
+							frameCount, instruction.sourceFrameNumber);
+						// Stop processing
+						break;
+					}
 					
 					// Process through compositor
 					outputFrame = compositor.processFrame(inputFrame, instruction);
@@ -503,10 +539,28 @@ int main(int argc, char* argv[]) {
 			utils::Timer::getInstance().printReport();
 		}
 		
+		// Explicit cleanup to ensure proper destruction order
+		// Clear decoders first (they may reference the shared hardware context)
+		decoders.clear();
+		
+		// For hardware encoding, add a small delay to ensure GPU operations complete
+		if (opts.hwEncode || opts.hwDecode) {
+			// Give GPU time to finish any pending operations
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
+		
+		// Reset the shared hardware context manager
+		// This ensures it's cleaned up before static destruction
+		media::HardwareContextManager::getInstance().reset();
+		
 		return 0;
 		
 	} catch (const std::exception& e) {
 		utils::Logger::error("Fatal error: {}", e.what());
+		
+		// Ensure cleanup happens even on error
+		media::HardwareContextManager::getInstance().reset();
+		
 		return 1;
 	}
 }

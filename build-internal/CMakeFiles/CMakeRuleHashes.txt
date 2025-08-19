@@ -1,0 +1,3 @@
+# Hashes of file build rules.
+6a254e875d43601038bf729d237b15c5 tests/CMakeFiles/generate_test_fixtures
+b03fde3f4ae6b9bad0dfe36e9f950ca7 tests/CMakeFiles/test_with_fixtures

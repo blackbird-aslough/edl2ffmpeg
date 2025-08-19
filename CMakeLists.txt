@@ -145,6 +145,7 @@ set(SOURCES
 	src/media/FFmpegEncoder.cpp
 	src/media/FFmpegCompat.cpp
 	src/media/HardwareAcceleration.cpp
+	src/media/HardwareContextManager.cpp
 	src/utils/Logger.cpp
 	src/utils/FrameBuffer.cpp
 )
@@ -168,6 +169,15 @@ if(BUILD_TESTS)
 	enable_testing()
 	add_subdirectory(tests)
 endif()
+
+# Test programs
+add_executable(test_nvenc_pipeline test_nvenc_pipeline.cpp)
+target_include_directories(test_nvenc_pipeline PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(test_nvenc_pipeline PRIVATE
+	PkgConfig::LIBAV
+)
 
 # Installation
 install(TARGETS edl2ffmpeg

@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "serena": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--network",
+        "host",
+        "-v",
+        "${PWD}:/workspaces/edl2ffmpeg",
+        "ghcr.io/oraios/serena:latest",
+        "serena",
+        "start-mcp-server",
+        "--transport",
+        "stdio",
+        "--project",
+        "/workspaces/edl2ffmpeg"
+      ],
+      "env": {}
+    }
+  }
+}

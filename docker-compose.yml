@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  serena-mcp:
+    image: ghcr.io/oraios/serena:latest
+    container_name: edl2ffmpeg-serena-mcp
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      # Mount the current project directory
+      - .:/workspaces/edl2ffmpeg:rw
+      # Mount other project directories if needed
+      # - /home/ajss/git:/workspaces/projects:rw
+    environment:
+      # Add any required environment variables
+      - SERENA_LOG_LEVEL=INFO
+      # PHP premium features (if needed)
+      # - INTELEPHENSE_LICENSE_KEY=your_license_key
+    stdin_open: true
+    tty: true
+    command: serena start-mcp-server --transport stdio
+
+  # Optional: Add a development container that includes FFmpeg and build tools
+  edl2ffmpeg-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: edl2ffmpeg-dev
+    volumes:
+      - .:/workspace:rw
+    working_dir: /workspace
+    depends_on:
+      - serena-mcp
+    command: /bin/bash

@@ -1,0 +1,468 @@
+[2025-08-15 02:31:21] [INFO] Parsing EDL file: brightness_linear_50percent.json
+[2025-08-15 02:31:21] [INFO] EDL: 1920x1080 @ 25 fps, 2 clips
+[2025-08-15 02:31:21] [INFO] Loading media: Test_Live_1906_High.mxf -> Test_Live_1906_High.mxf
+[2025-08-15 02:31:21] [INFO] Decoder initialized: 1920x1080 @ 25 fps, threads: 16, hardware: no
+[2025-08-15 02:31:21] [INFO] Creating output file: output_gpu.mp4
+[libx264 @ 0x3a092380] using SAR=1/1
+[libx264 @ 0x3a092380] using cpu capabilities: MMX2 SSE2Fast SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2
+[libx264 @ 0x3a092380] profile High, level 4.0, 4:2:0, 8-bit
+[libx264 @ 0x3a092380] 264 - core 164 - H.264/MPEG-4 AVC codec - Copyleft 2003-2025 - http://www.videolan.org/x264.html - options: cabac=1 ref=2 deblock=1:0:0 analyse=0x3:0x113 me=hex subme=4 psy=1 psy_rd=1.00:0.00 mixed_ref=0 me_range=16 chroma_me=1 trellis=1 8x8dct=1 cqm=0 deadzone=21,11 fast_pskip=1 chroma_qp_offset=0 threads=34 lookahead_threads=8 sliced_threads=0 nr=0 decimate=1 interlaced=0 bluray_compat=0 constrained_intra=0 bframes=3 b_pyramid=2 b_adapt=1 b_bias=0 direct=1 weightb=1 open_gop=0 weightp=1 keyint=300 keyint_min=25 scenecut=40 intra_refresh=0 rc_lookahead=20 rc=abr mbtree=1 bitrate=446 ratetol=1.0 qcomp=0.60 qpmin=0 qpmax=69 qpstep=4 ip_ratio=1.40 aq=1:1.00
+[2025-08-15 02:31:21] [INFO] Encoder initialized: 1920x1080 @ 25 fps, codec: libx264, threads: auto, hardware: no, max_b_frames: 0
+[2025-08-15 02:31:21] [INFO] Frame compositor initialized: 1920x1080, format: 0
+[2025-08-15 02:31:21] [INFO] Instruction generator initialized: 4500 total frames @ 25 fps
+[2025-08-15 02:31:21] [INFO] Processing 4500 frames...
+[2025-08-15 02:31:21] [INFO] GPU acceleration enabled but frames with effects require CPU processing
+[2025-08-15 02:31:21] [INFO] Pipeline: GPU decode → CPU effects → GPU encode
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[>                                                 ] 0.3% (12/4500 frames) FPS: 98.8 ETA: 45s [2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[>                                                 ] 0.5% (24/4500 frames) FPS: 109.7 ETA: 41s [2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[>                                                 ] 0.8% (36/4500 frames) FPS: 104.6 ETA: 43s [2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:21] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[>                                                 ] 1.1% (48/4500 frames) FPS: 97.9 ETA: 45s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[>                                                 ] 1.3% (60/4500 frames) FPS: 96.3 ETA: 46s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[>                                                 ] 1.6% (72/4500 frames) FPS: 106.1 ETA: 42s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[>                                                 ] 1.9% (84/4500 frames) FPS: 115.1 ETA: 38s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[=>                                                ] 2.1% (96/4500 frames) FPS: 121.7 ETA: 36s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[=>                                                ] 2.4% (108/4500 frames) FPS: 127.9 ETA: 34s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[=>                                                ] 2.7% (120/4500 frames) FPS: 133.1 ETA: 33s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[=>                                                ] 2.9% (132/4500 frames) FPS: 133.7 ETA: 33s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[=>                                                ] 3.2% (144/4500 frames) FPS: 139.1 ETA: 31s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[=>                                                ] 3.5% (156/4500 frames) FPS: 144.5 ETA: 30s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[=>                                                ] 3.7% (168/4500 frames) FPS: 149.8 ETA: 29s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[==>                                               ] 4.0% (180/4500 frames) FPS: 154.6 ETA: 28s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[==>                                               ] 4.3% (192/4500 frames) FPS: 159.2 ETA: 27s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[==>                                               ] 4.5% (204/4500 frames) FPS: 163.1 ETA: 26s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[==>                                               ] 4.8% (216/4500 frames) FPS: 166.1 ETA: 26s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[==>                                               ] 5.1% (228/4500 frames) FPS: 168.9 ETA: 25s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[==>                                               ] 5.3% (240/4500 frames) FPS: 172.0 ETA: 25s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[==>                                               ] 5.6% (252/4500 frames) FPS: 175.2 ETA: 24s [2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:22] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[==>                                               ] 5.9% (264/4500 frames) FPS: 178.0 ETA: 24s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[===>                                              ] 6.1% (276/4500 frames) FPS: 180.7 ETA: 23s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[===>                                              ] 6.4% (288/4500 frames) FPS: 183.2 ETA: 23s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[===>                                              ] 6.7% (300/4500 frames) FPS: 185.7 ETA: 23s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[===>                                              ] 6.9% (312/4500 frames) FPS: 188.3 ETA: 22s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[===>                                              ] 7.2% (324/4500 frames) FPS: 190.3 ETA: 22s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[===>                                              ] 7.5% (336/4500 frames) FPS: 192.6 ETA: 22s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[===>                                              ] 7.7% (348/4500 frames) FPS: 194.4 ETA: 21s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[====>                                             ] 8.0% (360/4500 frames) FPS: 194.9 ETA: 21s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[====>                                             ] 8.3% (372/4500 frames) FPS: 197.0 ETA: 21s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[====>                                             ] 8.5% (384/4500 frames) FPS: 198.8 ETA: 21s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[====>                                             ] 8.8% (396/4500 frames) FPS: 200.5 ETA: 20s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[====>                                             ] 9.1% (408/4500 frames) FPS: 202.4 ETA: 20s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[====>                                             ] 9.3% (420/4500 frames) FPS: 204.1 ETA: 20s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[====>                                             ] 9.6% (432/4500 frames) FPS: 205.7 ETA: 20s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[====>                                             ] 9.9% (444/4500 frames) FPS: 207.3 ETA: 20s [2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled
+[2025-08-15 02:31:23] [WARN] writeHardwareFrame called but hardware encoding is not enabled

@@ -5,6 +5,7 @@
 #include "utils/Timer.h"
 #include <stdexcept>
 #include <thread>
+#include <chrono>
 
 extern "C" {
 #include <libavutil/opt.h>
@@ -25,6 +26,27 @@ FFmpegEncoder::~FFmpegEncoder() {
 	if (!finalized) {
 		finalize();
 	}
+	
+	// For async hardware encoding, ensure all operations are complete
+	if (asyncMode && usingHardware && codecCtx) {
+		// Extra safety: drain any remaining packets
+		int safety = 0;
+		while (safety++ < 100) {
+			AVPacket* pkt = av_packet_alloc();
+			if (!pkt) break;
+			
+			int ret = avcodec_receive_packet(codecCtx, pkt);
+			av_packet_free(&pkt);
+			
+			if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF || ret < 0) {
+				break;
+			}
+		}
+		
+		// Reset async state
+		framesInFlight = 0;
+	}
+	
 	cleanup();
 }
 
@@ -41,7 +63,11 @@ FFmpegEncoder::FFmpegEncoder(FFmpegEncoder&& other) noexcept
 	, config(other.config)
 	, frameCount(other.frameCount)
 	, pts(other.pts)
-	, finalized(other.finalized) {
+	, finalized(other.finalized)
+	, asyncMode(other.asyncMode)
+	, codecName(std::move(other.codecName))
+	, framesInFlight(other.framesInFlight)
+	, ownHwDeviceCtx(other.ownHwDeviceCtx) {
 	
 	other.formatCtx = nullptr;
 	other.codecCtx = nullptr;
@@ -51,6 +77,7 @@ FFmpegEncoder::FFmpegEncoder(FFmpegEncoder&& other) noexcept
 	other.hwDeviceCtx = nullptr;
 	other.hwFrame = nullptr;
 	other.usingHardware = false;
+	other.ownHwDeviceCtx = false;
 	other.convertedFrame = nullptr;
 }
 
@@ -71,6 +98,10 @@ FFmpegEncoder& FFmpegEncoder::operator=(FFmpegEncoder&& other) noexcept {
 		frameCount = other.frameCount;
 		pts = other.pts;
 		finalized = other.finalized;
+		asyncMode = other.asyncMode;
+		codecName = std::move(other.codecName);
+		framesInFlight = other.framesInFlight;
+		ownHwDeviceCtx = other.ownHwDeviceCtx;
 		
 		other.formatCtx = nullptr;
 		other.codecCtx = nullptr;
@@ -80,6 +111,7 @@ FFmpegEncoder& FFmpegEncoder::operator=(FFmpegEncoder&& other) noexcept {
 		other.hwDeviceCtx = nullptr;
 		other.hwFrame = nullptr;
 		other.usingHardware = false;
+		other.ownHwDeviceCtx = false;
 		other.convertedFrame = nullptr;
 	}
 	return *this;
@@ -124,11 +156,27 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 					
 					// Create hardware device context (not needed for VideoToolbox)
 					if (hwType != HWAccelType::VideoToolbox) {
-						hwDeviceCtx = HardwareAcceleration::initializeHardwareContext(hwType, config.hwConfig.deviceIndex, "encoder");
-						
-						if (!hwDeviceCtx) {
-							codec = nullptr;
-							usingHardware = false;
+						// Use external hardware context if provided
+						if (config.externalHwDeviceCtx) {
+							hwDeviceCtx = av_buffer_ref(config.externalHwDeviceCtx);
+							if (!hwDeviceCtx) {
+								utils::Logger::error("Failed to reference external hardware context");
+								codec = nullptr;
+								usingHardware = false;
+							} else {
+								ownHwDeviceCtx = false;
+								utils::Logger::info("Using external hardware context for encoder");
+							}
+						} else {
+							// Create our own hardware context
+							hwDeviceCtx = HardwareAcceleration::initializeHardwareContext(hwType, config.hwConfig.deviceIndex, "encoder");
+							
+							if (hwDeviceCtx) {
+								ownHwDeviceCtx = true;
+							} else {
+								codec = nullptr;
+								usingHardware = false;
+							}
 						}
 					} else {
 						// VideoToolbox doesn't need explicit device context for encoding
@@ -150,6 +198,41 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 			throw std::runtime_error("Codec not found: " + config.codec);
 		}
 		codecName = config.codec;
+		
+		// Check if this is actually a hardware encoder by name
+		if (codecName.find("nvenc") != std::string::npos ||
+		    codecName.find("vaapi") != std::string::npos ||
+		    codecName.find("videotoolbox") != std::string::npos ||
+		    codecName.find("qsv") != std::string::npos) {
+			usingHardware = true;
+			utils::Logger::info("Detected hardware encoder by name: {}", codecName);
+			
+			// Create hardware device context if we don't have one
+			// Use external hardware context if provided, otherwise create our own
+			if (config.externalHwDeviceCtx) {
+				hwDeviceCtx = av_buffer_ref(config.externalHwDeviceCtx);
+				ownHwDeviceCtx = false;
+				utils::Logger::info("Using external hardware context for encoder");
+			} else if (!hwDeviceCtx) {
+				HWAccelType hwType = HWAccelType::None;
+				if (codecName.find("nvenc") != std::string::npos) {
+					hwType = HWAccelType::NVENC;
+				} else if (codecName.find("vaapi") != std::string::npos) {
+					hwType = HWAccelType::VAAPI;
+				} else if (codecName.find("videotoolbox") != std::string::npos) {
+					hwType = HWAccelType::VideoToolbox;
+				}
+				
+				if (hwType != HWAccelType::None && hwType != HWAccelType::VideoToolbox) {
+					hwDeviceCtx = HardwareAcceleration::initializeHardwareContext(hwType, 0, "encoder");
+					if (hwDeviceCtx) {
+						ownHwDeviceCtx = true;
+					} else {
+						utils::Logger::warn("Failed to create hardware context for {}, encoder may still work", codecName);
+					}
+				}
+			}
+		}
 	}
 	
 	// Create new video stream
@@ -175,8 +258,8 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 		HWAccelType hwType = config.hwConfig.type == HWAccelType::Auto ? 
 			HardwareAcceleration::getBestAccelType() : config.hwConfig.type;
 		
-		if (hwType == HWAccelType::VideoToolbox || hwType == HWAccelType::NVENC) {
-			// VideoToolbox and NVENC use software pixel format directly
+		if (hwType == HWAccelType::VideoToolbox || (hwType == HWAccelType::NVENC && !config.expectHardwareFrames)) {
+			// VideoToolbox and NVENC (in non-passthrough mode) use software pixel format directly
 			// The encoder handles GPU upload internally
 			codecCtx->pix_fmt = config.pixelFormat;  // Use software format (e.g., YUV420P)
 			// Set hardware device context for NVENC
@@ -353,6 +436,23 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 #endif
 	}
 	
+	// Enable async mode for hardware encoders and NVENC
+	// This allows batching multiple frames for better throughput
+	// MUST be done BEFORE avcodec_open2
+	if (usingHardware || codecName.find("nvenc") != std::string::npos) {
+		asyncMode = true;
+		
+		// For hardware encoders, increase buffer sizes for better batching
+		if (codecName.find("videotoolbox") != std::string::npos) {
+			// VideoToolbox benefits from larger async depth
+			av_opt_set_int(codecCtx->priv_data, "async_depth", ASYNC_QUEUE_SIZE, 0);
+		} else if (codecName.find("nvenc") != std::string::npos) {
+			// NVENC async settings
+			av_opt_set_int(codecCtx->priv_data, "delay", 0, 0); // No B-frame delay
+			av_opt_set_int(codecCtx->priv_data, "surfaces", ASYNC_QUEUE_SIZE * 2, 0);
+		}
+	}
+	
 	// Log actual B-frames setting before opening codec
 	utils::Logger::debug("Before avcodec_open2 - max_b_frames: {}", codecCtx->max_b_frames);
 	
@@ -407,21 +507,9 @@ void FFmpegEncoder::setupEncoder(const std::string& filename, const Config& conf
 		throw std::runtime_error("Failed to allocate conversion frame buffer");
 	}
 	
-	// Enable async mode for hardware encoders and NVENC
-	// This allows batching multiple frames for better throughput
-	if (usingHardware || codecName.find("nvenc") != std::string::npos) {
-		asyncMode = true;
+	// Log async mode status
+	if (asyncMode) {
 		utils::Logger::info("Async encoding enabled for {}", codecName);
-		
-		// For hardware encoders, increase buffer sizes for better batching
-		if (codecName.find("videotoolbox") != std::string::npos) {
-			// VideoToolbox benefits from larger async depth
-			av_opt_set_int(codecCtx->priv_data, "async_depth", ASYNC_QUEUE_SIZE, 0);
-		} else if (codecName.find("nvenc") != std::string::npos) {
-			// NVENC async settings
-			av_opt_set_int(codecCtx->priv_data, "delay", 0, 0); // No B-frame delay
-			av_opt_set_int(codecCtx->priv_data, "surfaces", ASYNC_QUEUE_SIZE * 2, 0);
-		}
 	}
 	
 	utils::Logger::info("Encoder initialized: {}x{} @ {} fps, codec: {}, threads: {}, hardware: {}, async: {}, max_b_frames: {}",
@@ -453,10 +541,22 @@ void FFmpegEncoder::cleanup() {
 	}
 	
 	if (codecCtx) {
+		// CRITICAL: For hardware codecs, we must call avcodec_close() before freeing
+		// This ensures all GPU operations are completed and resources are released
+		if (usingHardware) {
+			utils::Logger::debug("Closing hardware encoder codec");
+			// avcodec_close will handle cleanup of hw_frames_ctx internally
+			avcodec_close(codecCtx);
+			
+			// Small delay to ensure GPU operations complete
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
+		
 		avcodec_free_context(&codecCtx);
 	}
 	
-	if (hwDeviceCtx) {
+	if (hwDeviceCtx && ownHwDeviceCtx) {
+		// Only unref if we created it ourselves
 		av_buffer_unref(&hwDeviceCtx);
 	}
 	
@@ -538,8 +638,8 @@ bool FFmpegEncoder::writeFrame(AVFrame* frame) {
 	
 	bool result = encodeFrame(frameToEncode);
 	
-	// Process async queue periodically to maintain flow
-	if (asyncMode && (pts % 4 == 0)) {
+	// Process async queue frequently to maintain flow and prevent queue overflow
+	if (asyncMode) {
 		processEncodingQueue();
 	}
 	
@@ -571,9 +671,26 @@ bool FFmpegEncoder::writeHardwareFrame(AVFrame* frame) {
 			rangeStr, frame->color_primaries, frame->color_trc, frame->colorspace);
 	}
 	
-	// For hardware frames, we can encode directly without transfer
-	// Check if the frame is actually a hardware frame
-	if (!HardwareAcceleration::isHardwareFrame(frame)) {
+	// Check if the frame is a hardware frame and if it's compatible with our encoder
+	bool frameIsHardware = HardwareAcceleration::isHardwareFrame(frame);
+	bool needsTransfer = false;
+	
+	if (frameIsHardware) {
+		// Frame is hardware, but check if it's compatible with our encoder
+		// Log the frame format for debugging
+		utils::Logger::debug("Input hardware frame - format: {}, has hw_frames_ctx: {}",
+			av_get_pix_fmt_name((AVPixelFormat)frame->format),
+			frame->hw_frames_ctx ? "yes" : "no");
+		
+		// For now, assume frames from the decoder with shared context are compatible
+		// In the future, we might need to check if formats match
+		needsTransfer = false;
+	} else {
+		// Software frame needs to be uploaded to GPU
+		needsTransfer = true;
+	}
+	
+	if (needsTransfer) {
 		// Need to upload to GPU
 		if (!hwFrame) {
 			hwFrame = av_frame_alloc();
@@ -638,20 +755,31 @@ bool FFmpegEncoder::writeHardwareFrame(AVFrame* frame) {
 		bool result = encodeHardwareFrame(hwFrame);
 		
 		// Process async queue for hardware frames
-		if (asyncMode && (pts % 4 == 0)) {
+		if (asyncMode) {
 			processEncodingQueue();
 		}
 		
 		return result;
 	} else {
-		// Frame is already on GPU, encode directly
-		utils::Logger::debug("Encoding hardware frame directly - format: {}, size: {}x{}", 
+		// Frame is already on GPU and compatible, encode directly
+		utils::Logger::debug("GPU passthrough: encoding hardware frame directly - format: {}, size: {}x{}", 
 			av_get_pix_fmt_name((AVPixelFormat)frame->format), frame->width, frame->height);
-		frame->pts = pts++;
-		bool result = encodeHardwareFrame(frame);
+		
+		// Important: Don't modify the input frame, create a shallow copy for PTS
+		AVFrame* encoderFrame = av_frame_alloc();
+		if (!encoderFrame) {
+			return false;
+		}
+		
+		// Reference the hardware frame data without copying
+		av_frame_ref(encoderFrame, frame);
+		encoderFrame->pts = pts++;
+		
+		bool result = encodeHardwareFrame(encoderFrame);
+		av_frame_free(&encoderFrame);
 		
 		// Process async queue for hardware frames
-		if (asyncMode && (pts % 4 == 0)) {
+		if (asyncMode) {
 			processEncodingQueue();
 		}
 		
@@ -887,34 +1015,60 @@ bool FFmpegEncoder::finalize() {
 	
 	// Flush encoder
 	if (asyncMode) {
-		// For async mode, send flush signal
-		sendFrameAsync(nullptr);
+		// For async mode, first process any remaining frames in the queue
+		int flushAttempts = 0;
+		while (framesInFlight > 0 && flushAttempts < 100) {
+			bool received = receivePacketsAsync();
+			if (!received) {
+				// No packets received, avoid spinning
+				break;
+			}
+			flushAttempts++;
+		}
 		
-		// Drain all remaining packets with timeout protection
+		// Send flush signal to encoder
+		int ret = avcodec_send_frame(codecCtx, nullptr);
+		if (ret < 0 && ret != AVERROR_EOF) {
+			utils::Logger::warn("Failed to send flush frame to encoder");
+		}
+		
+		// Drain all remaining packets
 		int maxIterations = 1000;  // Prevent infinite loop
 		int iterations = 0;
+		bool done = false;
 		
-		while (iterations < maxIterations) {
-			// Try to receive packets
-			bool receivedAny = receivePacketsAsync();
-			
-			// If we got AVERROR_EOF or no frames in flight, we're done
-			if (framesInFlight == 0) {
+		while (!done && iterations < maxIterations) {
+			AVPacket* pkt = av_packet_alloc();
+			if (!pkt) {
 				break;
 			}
 			
-			// If we didn't receive anything and still have frames in flight,
-			// send another flush signal to ensure encoder processes
-			if (!receivedAny && framesInFlight > 0) {
-				sendFrameAsync(nullptr);
+			ret = avcodec_receive_packet(codecCtx, pkt);
+			if (ret == AVERROR(EAGAIN)) {
+				// No more packets available, we're done
+				av_packet_free(&pkt);
+				done = true;
+			} else if (ret == AVERROR_EOF || ret < 0) {
+				// End of stream or error
+				done = true;
+				av_packet_free(&pkt);
+			} else {
+				// Successfully received a packet
+				av_packet_rescale_ts(pkt, codecCtx->time_base, videoStream->time_base);
+				pkt->stream_index = videoStream->index;
+				
+				if (av_interleaved_write_frame(formatCtx, pkt) < 0) {
+					utils::Logger::error("Error writing packet during flush");
+				}
+				frameCount++;
+				av_packet_free(&pkt);
 			}
 			
 			iterations++;
 		}
 		
 		if (iterations >= maxIterations) {
-			utils::Logger::warn("Async flush timeout - {} frames may be lost", framesInFlight);
-			framesInFlight = 0;  // Force clear to prevent hang
+			utils::Logger::warn("Async flush timeout after {} iterations", iterations);
 		}
 	} else {
 		// For sync mode, use the traditional flush

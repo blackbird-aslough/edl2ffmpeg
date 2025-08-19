@@ -274,6 +274,9 @@ sudo apt-get install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
 ```
 To force software encoding: `--hw-accel none`
 
+### Issue: Crashes or hangs during cleanup with hardware acceleration
+**Solution**: This is a known issue with FFmpeg hardware codec cleanup. See [Hardware Acceleration Cleanup Guide](docs/hardware-acceleration-cleanup.md) for the correct cleanup sequence. The key is calling `avcodec_close()` before `avcodec_free_context()` for hardware codecs.
+
 ## Development Workflow
 
 ### Before Making Changes

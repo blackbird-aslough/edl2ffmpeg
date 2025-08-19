@@ -22,6 +22,13 @@ public:
 		// Hardware acceleration settings
 		HWConfig hwConfig;
 		bool useHardwareEncoder = false;  // Enable hardware encoding
+		
+		// External hardware context (optional)
+		// If provided, this context will be used instead of creating a new one
+		AVBufferRef* externalHwDeviceCtx = nullptr;
+		
+		// GPU passthrough mode - expect hardware frames from decoder
+		bool expectHardwareFrames = false;
 	};
 	
 	FFmpegEncoder(const std::string& filename, const Config& config);
@@ -75,6 +82,9 @@ private:
 	std::string codecName;
 	int framesInFlight = 0;
 	static constexpr int ASYNC_QUEUE_SIZE = 16;
+	
+	// Track if we created hwDeviceCtx ourselves
+	bool ownHwDeviceCtx = false;
 };
 
 } // namespace media

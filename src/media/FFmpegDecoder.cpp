@@ -184,11 +184,24 @@ void FFmpegDecoder::setupDecoder() {
 			// Create hardware device context (not needed for VideoToolbox)
 			if (usingHardware) {
 				if (hwType != HWAccelType::VideoToolbox) {
-					hwDeviceCtx = HardwareAcceleration::initializeHardwareContext(hwType, decoderConfig.hwConfig.deviceIndex, "decoder");
-					
-					if (!hwDeviceCtx) {
-						codec = nullptr;
-						usingHardware = false;
+					// Use external hardware context if provided
+					if (decoderConfig.externalHwDeviceCtx) {
+						hwDeviceCtx = av_buffer_ref(decoderConfig.externalHwDeviceCtx);
+						if (!hwDeviceCtx) {
+							utils::Logger::error("Failed to reference external hardware context");
+							codec = nullptr;
+							usingHardware = false;
+						} else {
+							utils::Logger::info("Using external hardware context for decoder");
+						}
+					} else {
+						// Create our own hardware context
+						hwDeviceCtx = HardwareAcceleration::initializeHardwareContext(hwType, decoderConfig.hwConfig.deviceIndex, "decoder");
+						
+						if (!hwDeviceCtx) {
+							codec = nullptr;
+							usingHardware = false;
+						}
 					}
 				} else {
 					// VideoToolbox doesn't need explicit device context
@@ -301,10 +314,17 @@ void FFmpegDecoder::cleanup() {
 	}
 	
 	if (codecCtx) {
+		// CRITICAL: For hardware codecs, we must call avcodec_close() before freeing
+		// This ensures all GPU operations are completed and resources are released
+		if (usingHardware) {
+			utils::Logger::debug("Closing hardware decoder codec");
+			avcodec_close(codecCtx);
+		}
 		avcodec_free_context(&codecCtx);
 	}
 	
-	if (hwDeviceCtx) {
+	if (hwDeviceCtx && hwDeviceCtx != decoderConfig.externalHwDeviceCtx) {
+		// Only unref if we created it ourselves
 		av_buffer_unref(&hwDeviceCtx);
 	}
 	
@@ -362,6 +382,57 @@ bool FFmpegDecoder::seekToFrame(int64_t frameNumber) {
 	return true;
 }
 
+bool FFmpegDecoder::seekToFrameHardware(int64_t frameNumber) {
+	if (frameNumber < 0 || frameNumber >= totalFrames) {
+		utils::Logger::error("Frame number {} out of range [0, {})", frameNumber, totalFrames);
+		return false;
+	}
+	
+	// If we're already at the exact frame, no need to seek
+	if (currentFrameNumber == frameNumber) {
+		return true;
+	}
+	
+	// Check if we need to seek backward or if we're too far ahead
+	// Only seek if we need to go backward or if we're more than 60 frames ahead
+	// (seeking forward through 60+ frames is slower than seeking)
+	if (currentFrameNumber > frameNumber || currentFrameNumber < frameNumber - 60) {
+		// Seek to a keyframe before the target
+		int64_t targetPts = frameNumberToPts(frameNumber);
+		int ret = av_seek_frame(formatCtx, videoStreamIndex, targetPts,
+			AVSEEK_FLAG_BACKWARD);
+		
+		if (ret < 0) {
+			utils::Logger::error("Failed to seek to frame {} (PTS: {})", frameNumber, targetPts);
+			return false;
+		}
+		
+		// Flush codec buffers to clear decoder state
+		FFmpegCompat::flushBuffers(codecCtx);
+		
+		// Clear any cached packets
+		av_packet_unref(packet);
+		
+		// Reset frame position
+		currentFrameNumber = -1;
+		
+		utils::Logger::debug("Hardware seek: jumped to keyframe before frame {} (current: {})", 
+			frameNumber, currentFrameNumber);
+	}
+	
+	// Decode frames until we reach the target - use hardware frames for seeking
+	auto tempFrame = makeAVFrame();
+	while (currentFrameNumber < frameNumber - 1) {
+		if (!decodeNextHardwareFrame(tempFrame.get())) {
+			utils::Logger::error("Failed to decode hardware frame during seek at frame {} (target: {})", 
+				currentFrameNumber, frameNumber);
+			return false;
+		}
+	}
+	
+	return true;
+}
+
 std::shared_ptr<AVFrame> FFmpegDecoder::getFrame(int64_t frameNumber) {
 	if (!seekToFrame(frameNumber)) {
 		return nullptr;
@@ -381,7 +452,9 @@ std::shared_ptr<AVFrame> FFmpegDecoder::getHardwareFrame(int64_t frameNumber) {
 		return getFrame(frameNumber);
 	}
 	
-	if (!seekToFrame(frameNumber)) {
+	// Use hardware-aware seeking
+	if (!seekToFrameHardware(frameNumber)) {
+		utils::Logger::error("Hardware seek failed for frame {}", frameNumber);
 		return nullptr;
 	}
 	
@@ -391,12 +464,28 @@ std::shared_ptr<AVFrame> FFmpegDecoder::getHardwareFrame(int64_t frameNumber) {
 	});
 	
 	if (!hwFrame) {
+		utils::Logger::error("Failed to allocate hardware frame for frame {}", frameNumber);
 		return nullptr;
 	}
 	
 	if (!decodeNextHardwareFrame(hwFrame.get())) {
+		utils::Logger::error("Failed to decode hardware frame {} - format: {}, hw_device_ctx: {}", 
+			frameNumber, av_get_pix_fmt_name(pixelFormat), 
+			codecCtx->hw_device_ctx ? "present" : "null");
 		return nullptr;
 	}
+	
+	// Validate the hardware frame
+	if (!HardwareAcceleration::isHardwareFrame(hwFrame.get())) {
+		utils::Logger::error("Decoded frame {} is not a hardware frame - format: {}, hw_frames_ctx: {}", 
+			frameNumber, av_get_pix_fmt_name((AVPixelFormat)hwFrame->format),
+			hwFrame->hw_frames_ctx ? "present" : "null");
+		return nullptr;
+	}
+	
+	utils::Logger::debug("Successfully got hardware frame {} - format: {}, size: {}x{}", 
+		frameNumber, av_get_pix_fmt_name((AVPixelFormat)hwFrame->format),
+		hwFrame->width, hwFrame->height);
 	
 	return hwFrame;
 }
@@ -410,9 +499,13 @@ bool FFmpegDecoder::decodeNextHardwareFrame(AVFrame* frame) {
 				// Try to flush decoder
 				if (FFmpegCompat::decodeVideoFrame(codecCtx, frame, nullptr)) {
 					currentFrameNumber++;
+					utils::Logger::debug("Flushed hardware frame {} at EOF", currentFrameNumber);
 					return true;
 				}
 			}
+			char errbuf[AV_ERROR_MAX_STRING_SIZE];
+			av_strerror(ret, errbuf, sizeof(errbuf));
+			utils::Logger::error("Failed to read frame for hardware decode: {} (frame {})", errbuf, currentFrameNumber);
 			return false;
 		}
 		
@@ -425,9 +518,18 @@ bool FFmpegDecoder::decodeNextHardwareFrame(AVFrame* frame) {
 			av_packet_unref(packet);
 			currentFrameNumber++;
 			// Return the hardware frame directly without transfer
-			utils::Logger::debug("Decoded hardware frame - format: {}, hw_frames_ctx: {}", 
+			utils::Logger::debug("Decoded hardware frame {} - format: {}, hw_frames_ctx: {}, size: {}x{}", 
+				currentFrameNumber,
 				av_get_pix_fmt_name((AVPixelFormat)frame->format), 
-				frame->hw_frames_ctx ? "present" : "null");
+				frame->hw_frames_ctx ? "present" : "null",
+				frame->width, frame->height);
+			
+			// Validate frame
+			if (frame->width <= 0 || frame->height <= 0) {
+				utils::Logger::error("Invalid hardware frame dimensions: {}x{}", frame->width, frame->height);
+				return false;
+			}
+			
 			return true;
 		}
 		
