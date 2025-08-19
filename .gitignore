@@ -137,8 +137,15 @@ timings-*
 # Patch files
 *.patch
 
-# Test programs
+# Test programs and scripts
 test_nvenc_pipeline.cpp
+test_*.sh
+check_*.sh
+
+# Docker and config examples
+docker-compose.yml
+claude_desktop_config.example.json
+DOCKER_MCP_SETUP.md
 
 # Serena IDE
 .serena/
