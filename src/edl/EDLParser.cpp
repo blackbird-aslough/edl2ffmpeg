@@ -561,6 +561,28 @@ Clip EDLParser::parseClip(const nlohmann::json& j) {
 		}
 	}
 	
+	// Parse effects array if present
+	if (hasNonNullKey(j, "effects")) {
+		auto effectsArray = getArray(j, "clip", "effects");
+		for (const auto& effectJson : effectsArray) {
+			if (!effectJson.is_object()) {
+				throw InvalidEdlException("Each effect must be an object");
+			}
+			
+			SimpleEffect effect;
+			effect.type = getString(effectJson, "effect", "type");
+			
+			// Get strength, default to 1.0 if not specified
+			if (hasNonNullKey(effectJson, "strength")) {
+				effect.strength = static_cast<float>(getDouble(effectJson, "effect", "strength"));
+			} else {
+				effect.strength = 1.0f;
+			}
+			
+			clip.effects.push_back(effect);
+		}
+	}
+	
 	return clip;
 }
 
