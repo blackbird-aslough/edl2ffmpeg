@@ -1,6 +1,7 @@
 #include "EDLGenerator.h"
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 
 namespace test {
 
@@ -316,7 +317,14 @@ nlohmann::json basicSingleClip(const std::string& videoFile, double duration) {
 	clip["out"] = duration;
 	clip["track"]["type"] = "video";
 	clip["track"]["number"] = 1;
-	clip["source"]["uri"] = videoFile;
+	// Use absolute path to avoid path resolution issues between edl2ffmpeg and ftv_toffmpeg
+	std::string fullPath = videoFile;
+	if (fullPath.find("fixtures/") == 0) {
+		// Get absolute path to the test video
+		std::filesystem::path currentPath = std::filesystem::current_path();
+		fullPath = (currentPath / "integration" / "approval" / fullPath).string();
+	}
+	clip["source"]["uri"] = fullPath;
 	clip["source"]["trackId"] = "V1";
 	clip["source"]["in"] = 0;
 	clip["source"]["out"] = duration;
@@ -364,13 +372,21 @@ nlohmann::json sequentialClips(const std::string& videoFile, int count, double c
 	
 	nlohmann::json clips = nlohmann::json::array();
 	
+	// Use absolute path to avoid path resolution issues between edl2ffmpeg and ftv_toffmpeg
+	std::string fullPath = videoFile;
+	if (fullPath.find("fixtures/") == 0) {
+		// Get absolute path to the test video
+		std::filesystem::path currentPath = std::filesystem::current_path();
+		fullPath = (currentPath / "integration" / "approval" / fullPath).string();
+	}
+	
 	for (int i = 0; i < count; i++) {
 		nlohmann::json clip;
 		clip["in"] = i * clipDuration;
 		clip["out"] = (i + 1) * clipDuration;
 		clip["track"]["type"] = "video";
 		clip["track"]["number"] = 1;
-		clip["source"]["uri"] = videoFile;
+		clip["source"]["uri"] = fullPath;
 		clip["source"]["trackId"] = "V1";
 		clip["source"]["in"] = i * clipDuration;
 		clip["source"]["out"] = (i + 1) * clipDuration;

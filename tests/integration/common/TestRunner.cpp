@@ -253,12 +253,12 @@ void TestRunner::findExecutables() {
 	// Try to find edl2ffmpeg executable
 	if (fs::exists("./edl2ffmpeg")) {
 		edl2ffmpegPath_ = "./edl2ffmpeg";
-	} else if (fs::exists("../edl2ffmpeg")) {
-		edl2ffmpegPath_ = "../edl2ffmpeg";
-	} else if (fs::exists("../build/edl2ffmpeg")) {
-		edl2ffmpegPath_ = "../build/edl2ffmpeg";
 	} else if (fs::exists("../../build/edl2ffmpeg")) {
 		edl2ffmpegPath_ = "../../build/edl2ffmpeg";
+	} else if (fs::exists("../build/edl2ffmpeg")) {
+		edl2ffmpegPath_ = "../build/edl2ffmpeg";
+	} else if (fs::exists("../edl2ffmpeg") && !fs::is_directory("../edl2ffmpeg")) {
+		edl2ffmpegPath_ = "../edl2ffmpeg";
 	} else {
 		edl2ffmpegPath_ = "edl2ffmpeg";  // Hope it's in PATH
 	}
