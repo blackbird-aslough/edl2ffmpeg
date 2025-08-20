@@ -7,7 +7,7 @@
         "in": 0,
         "out": 5.0,
         "trackId": "V1",
-        "uri": "fixtures/test_bars_1080p_30fps_10s.mp4"
+        "uri": "tests/integration/approval/fixtures/test_bars_1080p_30fps_10s.mp4"
       },
       "tailFade": 1.0,
       "topFade": 0.0,

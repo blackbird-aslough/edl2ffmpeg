@@ -234,7 +234,15 @@ nlohmann::json EDLGenerator::generateClip(double startTime, double endTime, int 
 
 nlohmann::json EDLGenerator::generateMediaSource(double inPoint, double outPoint) {
 	nlohmann::json source;
-	source["uri"] = videoFile_;
+	
+	// Use relative path from project root for consistency
+	std::string fullPath = videoFile_;
+	if (fullPath.find("fixtures/") == 0) {
+		// Convert to path relative to project root
+		fullPath = "tests/integration/approval/" + fullPath;
+	}
+	
+	source["uri"] = fullPath;
 	source["trackId"] = "V1";
 	source["in"] = inPoint;
 	source["out"] = outPoint;
@@ -317,17 +325,11 @@ nlohmann::json basicSingleClip(const std::string& videoFile, double duration) {
 	clip["out"] = duration;
 	clip["track"]["type"] = "video";
 	clip["track"]["number"] = 1;
-	// Use absolute path to avoid path resolution issues between edl2ffmpeg and ftv_toffmpeg
+	// Use relative path from project root for consistency
 	std::string fullPath = videoFile;
 	if (fullPath.find("fixtures/") == 0) {
-		// Get absolute path to the test video
-		std::filesystem::path currentPath = std::filesystem::current_path();
-		// Check if we're in build directory
-		if (currentPath.filename() == "build") {
-			fullPath = (currentPath.parent_path() / "tests" / "integration" / "approval" / fullPath).string();
-		} else {
-			fullPath = (currentPath / "integration" / "approval" / fullPath).string();
-		}
+		// Convert to path relative to project root
+		fullPath = "tests/integration/approval/" + fullPath;
 	}
 	clip["source"]["uri"] = fullPath;
 	clip["source"]["trackId"] = "V1";
@@ -377,17 +379,11 @@ nlohmann::json sequentialClips(const std::string& videoFile, int count, double c
 	
 	nlohmann::json clips = nlohmann::json::array();
 	
-	// Use absolute path to avoid path resolution issues between edl2ffmpeg and ftv_toffmpeg
+	// Use relative path from project root for consistency
 	std::string fullPath = videoFile;
 	if (fullPath.find("fixtures/") == 0) {
-		// Get absolute path to the test video
-		std::filesystem::path currentPath = std::filesystem::current_path();
-		// Check if we're in build directory
-		if (currentPath.filename() == "build") {
-			fullPath = (currentPath.parent_path() / "tests" / "integration" / "approval" / fullPath).string();
-		} else {
-			fullPath = (currentPath / "integration" / "approval" / fullPath).string();
-		}
+		// Convert to path relative to project root
+		fullPath = "tests/integration/approval/" + fullPath;
 	}
 	
 	for (int i = 0; i < count; i++) {

@@ -1,15 +1,10 @@
 {
   "clips": [
     {
-      "effects": [
-        {
-          "strength": 1.2,
-          "type": "brightness"
-        }
-      ],
       "in": 0,
       "out": 3,
       "source": {
+        "gamma": 1.2,
         "in": 0,
         "out": 3,
         "trackId": "V1",
@@ -22,12 +17,6 @@
       }
     },
     {
-      "effects": [
-        {
-          "strength": 1.5,
-          "type": "contrast"
-        }
-      ],
       "in": 3,
       "out": 6,
       "source": {
@@ -42,19 +31,10 @@
       }
     },
     {
-      "effects": [
-        {
-          "strength": 0.8,
-          "type": "brightness"
-        },
-        {
-          "strength": 0.7,
-          "type": "contrast"
-        }
-      ],
       "in": 6,
       "out": 10,
       "source": {
+        "gamma": 0.8,
         "in": 6,
         "out": 10,
         "trackId": "V1",

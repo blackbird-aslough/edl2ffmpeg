@@ -7,7 +7,7 @@
         "in": 0.0,
         "out": 2.0,
         "trackId": "V1",
-        "uri": "fixtures/test_bars_1080p_30fps_10s.mp4"
+        "uri": "tests/integration/approval/fixtures/test_bars_1080p_30fps_10s.mp4"
       },
       "track": {
         "number": 1,
@@ -21,7 +21,7 @@
         "in": 2.0,
         "out": 4.0,
         "trackId": "V1",
-        "uri": "fixtures/test_bars_1080p_30fps_10s.mp4"
+        "uri": "tests/integration/approval/fixtures/test_bars_1080p_30fps_10s.mp4"
       },
       "track": {
         "number": 1,

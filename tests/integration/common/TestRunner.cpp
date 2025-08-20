@@ -251,20 +251,36 @@ void TestRunner::cleanup() {
 
 void TestRunner::findExecutables() {
 	// Try to find edl2ffmpeg executable
+	// Debug: show current working directory
+	std::cout << "Current directory: " << fs::current_path() << std::endl;
+	
 	if (fs::exists("./edl2ffmpeg")) {
 		edl2ffmpegPath_ = "./edl2ffmpeg";
+		std::cout << "Found edl2ffmpeg at: ./edl2ffmpeg" << std::endl;
+	} else if (fs::exists("./build/edl2ffmpeg")) {
+		edl2ffmpegPath_ = "./build/edl2ffmpeg";
+		std::cout << "Found edl2ffmpeg at: ./build/edl2ffmpeg" << std::endl;
+	} else if (fs::exists("../../../build/edl2ffmpeg")) {
+		edl2ffmpegPath_ = "../../../build/edl2ffmpeg";
+		std::cout << "Found edl2ffmpeg at: ../../../build/edl2ffmpeg" << std::endl;
 	} else if (fs::exists("../../build/edl2ffmpeg")) {
 		edl2ffmpegPath_ = "../../build/edl2ffmpeg";
+		std::cout << "Found edl2ffmpeg at: ../../build/edl2ffmpeg" << std::endl;
 	} else if (fs::exists("../build/edl2ffmpeg")) {
 		edl2ffmpegPath_ = "../build/edl2ffmpeg";
+		std::cout << "Found edl2ffmpeg at: ../build/edl2ffmpeg" << std::endl;
 	} else if (fs::exists("../edl2ffmpeg") && !fs::is_directory("../edl2ffmpeg")) {
 		edl2ffmpegPath_ = "../edl2ffmpeg";
+		std::cout << "Found edl2ffmpeg at: ../edl2ffmpeg" << std::endl;
 	} else {
 		edl2ffmpegPath_ = "edl2ffmpeg";  // Hope it's in PATH
+		std::cout << "WARNING: Could not find edl2ffmpeg, using PATH" << std::endl;
 	}
 	
 	// Find reference renderer script
-	if (fs::exists("../../scripts/ftv_toffmpeg_wrapper_full.sh")) {
+	if (fs::exists("../../../scripts/ftv_toffmpeg_wrapper_full.sh")) {
+		referenceScript_ = "../../../scripts/ftv_toffmpeg_wrapper_full.sh";
+	} else if (fs::exists("../../scripts/ftv_toffmpeg_wrapper_full.sh")) {
 		referenceScript_ = "../../scripts/ftv_toffmpeg_wrapper_full.sh";
 	} else if (fs::exists("../scripts/ftv_toffmpeg_wrapper_full.sh")) {
 		referenceScript_ = "../scripts/ftv_toffmpeg_wrapper_full.sh";

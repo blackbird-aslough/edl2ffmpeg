@@ -209,6 +209,12 @@ exec docker run --rm \
             ln -s "$(pwd)/fixtures" "approval/fixtures/fixtures" 2>/dev/null || true
         fi
         
+        # Handle the case where ftv_extract_rawav looks for files relative to EDL directory
+        # Create symlink for tests directory inside approval/fixtures
+        if [[ -d "approval/fixtures" ]] && [[ -d "tests" ]] && [[ ! -e "approval/fixtures/tests" ]]; then
+            ln -s "$(pwd)/tests" "approval/fixtures/tests" 2>/dev/null || true
+        fi
+        
         # Create a stub libseccomp that returns success for all operations
         cat > /tmp/libseccomp_stub.c << "EOF"
 #include <stdarg.h>

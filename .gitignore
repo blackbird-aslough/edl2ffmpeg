@@ -150,5 +150,8 @@ DOCKER_MCP_SETUP.md
 # Serena IDE
 .serena/
 
-# Local documentation  
+# Local documentation
 NIX_README.md
+
+# Reference docs
+reference
