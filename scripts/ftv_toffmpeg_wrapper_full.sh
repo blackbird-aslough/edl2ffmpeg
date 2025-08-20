@@ -29,6 +29,8 @@ get_absolute_path() {
 # Parse arguments to find file paths that need to be mounted
 MOUNT_PATHS=()
 ALL_ARGS=("$@")
+EDL_FILE=""
+OUTPUT_FILE=""
 
 # Function to add a path to mount list
 add_mount_path() {
@@ -52,6 +54,42 @@ add_mount_path() {
     fi
 }
 
+# Function to parse EDL and extract video paths
+parse_edl_for_paths() {
+    local edl_file="$1"
+    if [[ ! -f "$edl_file" ]]; then
+        return
+    fi
+    
+    # Extract all URI values from the EDL JSON
+    local uris=$(grep -o '"uri"[[:space:]]*:[[:space:]]*"[^"]*"' "$edl_file" 2>/dev/null | sed 's/.*"uri"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+    
+    for uri in $uris; do
+        # If it's a relative path, resolve it relative to the current working directory
+        # (not the EDL file directory, as ftv_toffmpeg expects paths relative to where it's run from)
+        if [[ "$uri" != /* ]]; then
+            # Try path relative to current directory first
+            if [[ -e "$uri" ]]; then
+                local abs_video_path=$(get_absolute_path "$uri")
+                add_mount_path "$abs_video_path"
+            else
+                # If not found, try relative to EDL directory as fallback
+                local edl_dir=$(dirname "$edl_file")
+                local video_path="$edl_dir/$uri"
+                if [[ -e "$video_path" ]]; then
+                    local abs_video_path=$(get_absolute_path "$video_path")
+                    add_mount_path "$abs_video_path"
+                fi
+            fi
+        else
+            # Absolute path
+            if [[ -e "$uri" ]]; then
+                add_mount_path "$uri"
+            fi
+        fi
+    done
+}
+
 # Process arguments
 for i in "${!ALL_ARGS[@]}"; do
     arg="${ALL_ARGS[$i]}"
@@ -64,28 +102,59 @@ for i in "${!ALL_ARGS[@]}"; do
         --logo|--kill|--tmp|--edl|--captions-embed|--progress|--report)
             if [[ -n "$next_arg" ]] && [[ "$next_arg" != -* ]]; then
                 add_mount_path "$next_arg"
+                # Track EDL file specifically
+                if [[ "$arg" == "--edl" ]]; then
+                    EDL_FILE="$next_arg"
+                fi
             fi
             ;;
         --logo=*|--kill=*|--tmp=*|--edl=*|--captions-embed=*|--progress=*|--report=*)
             value="${arg#*=}"
             if [[ -n "$value" ]]; then
                 add_mount_path "$value"
+                # Track EDL file specifically
+                if [[ "$arg" == --edl=* ]]; then
+                    EDL_FILE="$value"
+                fi
             fi
             ;;
         -*)
             ;;
         *)
+            # Check if this is a file path (first non-option argument is typically the EDL file)
             if [[ "$arg" == */* ]] || [[ -e "$arg" ]] || [[ "$arg" == *.* ]]; then
                 add_mount_path "$arg"
+                # First non-option argument that looks like a file is likely the EDL
+                if [[ -z "$EDL_FILE" ]] && [[ "$arg" == *.json || "$arg" == *.edl || -f "$arg" ]]; then
+                    EDL_FILE="$arg"
+                elif [[ -z "$OUTPUT_FILE" ]]; then
+                    OUTPUT_FILE="$arg"
+                fi
             fi
             ;;
     esac
 done
 
-# Add mounts (skip /tmp as it will be handled separately)
+# Parse EDL file for video paths if we found one
+if [[ -n "$EDL_FILE" ]] && [[ -f "$EDL_FILE" ]]; then
+    parse_edl_for_paths "$EDL_FILE"
+fi
+
+# Always ensure fixtures directory is mounted if we're in tests directory
+if [[ -d "fixtures" ]]; then
+    fixtures_dir=$(get_absolute_path "fixtures")
+    add_mount_path "$fixtures_dir"
+fi
+
+# Add mounts - make output directories writable
 for mount in "${MOUNT_PATHS[@]}"; do
     if [[ "$mount" != "/tmp" ]]; then
-        DOCKER_ARGS+=(-v "$mount:$mount:ro")
+        # Check if this path is for an output file (ends with .mp4, .mov, etc. or contains /tmp/ or /var/folders/)
+        if [[ "$mount" == */tmp/* ]] || [[ "$mount" == */var/folders/* ]] || [[ "$mount" == */T/* ]]; then
+            DOCKER_ARGS+=(-v "$mount:$mount:rw")
+        else
+            DOCKER_ARGS+=(-v "$mount:$mount:ro")
+        fi
     fi
 done
 
@@ -133,6 +202,13 @@ exec docker run --rm \
     -w "/work" \
     "$DOCKER_IMAGE" \
     bash -c '
+        # Create symlinks to handle path resolution issues
+        # If we have approval/fixtures directory and fixtures directory exists at root level,
+        # create a symlink inside approval/fixtures to point to the root fixtures
+        if [[ -d "approval/fixtures" ]] && [[ -d "fixtures" ]] && [[ ! -e "approval/fixtures/fixtures" ]]; then
+            ln -s "$(pwd)/fixtures" "approval/fixtures/fixtures" 2>/dev/null || true
+        fi
+        
         # Create a stub libseccomp that returns success for all operations
         cat > /tmp/libseccomp_stub.c << "EOF"
 #include <stdarg.h>
