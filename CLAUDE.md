@@ -164,6 +164,36 @@ ffmpeg -f lavfi -i testsrc=duration=10:size=1920x1080:rate=30 test_video.mp4
 ./edl2ffmpeg input.json output.mp4 --hw-accel none  # Force software
 ```
 
+### Testing Against Reference Implementation
+
+The project includes a Docker wrapper script to run the reference `ftv_toffmpeg` implementation for comparison testing. This ensures our output matches the expected behavior.
+
+```bash
+# Run reference implementation using Docker wrapper
+./scripts/ftv_toffmpeg_wrapper_full.sh input.edl output.mp4
+
+# Compare with edl2ffmpeg output
+./edl2ffmpeg input.edl output_edl2ffmpeg.mp4
+
+# Use ffmpeg to verify outputs match
+ffmpeg -i output.mp4 -i output_edl2ffmpeg.mp4 -filter_complex "psnr" -f null -
+```
+
+**Important**: When implementing new EDL functionality, always verify that the output matches the reference implementation. The Docker wrapper handles:
+- Platform compatibility (runs Linux x86_64 container on Apple Silicon)
+- Automatic volume mounting for input/output files
+- Seccomp workarounds for container compatibility
+
+To obtain the reference container:
+```bash
+# On Linux server with ftv_toffmpeg installed:
+docker save <container_id> | gzip > ftv_full.tar.gz
+
+# On development machine:
+scp server:ftv_full.tar.gz .
+docker load < ftv_full.tar.gz
+```
+
 ## Performance Considerations
 
 ### Current Optimizations
@@ -265,7 +295,7 @@ sudo apt-get install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
 **Note**: The codebase supports FFmpeg 2.x, 3.x, 4.x, and 5.x with compatibility macros.
 
 ### Issue: Platform differences in output (Linux vs macOS)
-**Solution**: This is intentional due to B-frame handling differences. macOS VideoToolbox has B-frames disabled to avoid PTS/DTS ordering issues. See `FFMPEG_PLATFORM_DIFFERENCES.md` for details.
+**Solution**: This is intentional due to B-frame handling differences. macOS VideoToolbox has B-frames disabled to avoid PTS/DTS ordering issues. The encoder configuration in `FFmpegEncoder.cpp` specifically disables B-frames on macOS (`codecCtx->max_b_frames = 0`) to ensure proper frame ordering when using hardware acceleration.
 
 ### Issue: Hardware acceleration not working
 **Solution**: Check hardware support with:
@@ -411,6 +441,11 @@ make -j$(nproc)
 # Test
 ctest
 ./edl2ffmpeg tests/sample_edls/simple_single_clip.json test.mp4
+
+# Test against reference implementation
+./scripts/ftv_toffmpeg_wrapper_full.sh input.edl reference_output.mp4
+./edl2ffmpeg input.edl our_output.mp4
+ffmpeg -i reference_output.mp4 -i our_output.mp4 -filter_complex "psnr" -f null -
 
 # Profile
 valgrind --leak-check=full ./edl2ffmpeg input.json output.mp4
