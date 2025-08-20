@@ -1,0 +1,23 @@
+{
+  "clips": [
+    {
+      "in": 0,
+      "out": 5.0,
+      "source": {
+        "in": 0,
+        "out": 5.0,
+        "trackId": "V1",
+        "uri": "fixtures/test_bars_1080p_30fps_10s.mp4"
+      },
+      "tailFade": 1.5,
+      "topFade": 1.0,
+      "track": {
+        "number": 1,
+        "type": "video"
+      }
+    }
+  ],
+  "fps": 30,
+  "height": 1080,
+  "width": 1920
+}

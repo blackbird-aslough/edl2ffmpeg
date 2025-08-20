@@ -1,0 +1,77 @@
+{
+  "clips": [
+    {
+      "in": 0.0,
+      "out": 1.0,
+      "source": {
+        "in": 0.0,
+        "out": 1.0,
+        "trackId": "V1",
+        "uri": "fixtures/test_bars_1080p_30fps_10s.mp4"
+      },
+      "track": {
+        "number": 1,
+        "type": "video"
+      }
+    },
+    {
+      "in": 1.0,
+      "out": 2.0,
+      "source": {
+        "in": 1.0,
+        "out": 2.0,
+        "trackId": "V1",
+        "uri": "fixtures/test_bars_1080p_30fps_10s.mp4"
+      },
+      "track": {
+        "number": 1,
+        "type": "video"
+      }
+    },
+    {
+      "in": 2.0,
+      "out": 3.0,
+      "source": {
+        "in": 2.0,
+        "out": 3.0,
+        "trackId": "V1",
+        "uri": "fixtures/test_bars_1080p_30fps_10s.mp4"
+      },
+      "track": {
+        "number": 1,
+        "type": "video"
+      }
+    },
+    {
+      "in": 3.0,
+      "out": 4.0,
+      "source": {
+        "in": 3.0,
+        "out": 4.0,
+        "trackId": "V1",
+        "uri": "fixtures/test_bars_1080p_30fps_10s.mp4"
+      },
+      "track": {
+        "number": 1,
+        "type": "video"
+      }
+    },
+    {
+      "in": 4.0,
+      "out": 5.0,
+      "source": {
+        "in": 4.0,
+        "out": 5.0,
+        "trackId": "V1",
+        "uri": "fixtures/test_bars_1080p_30fps_10s.mp4"
+      },
+      "track": {
+        "number": 1,
+        "type": "video"
+      }
+    }
+  ],
+  "fps": 30,
+  "height": 1080,
+  "width": 1920
+}

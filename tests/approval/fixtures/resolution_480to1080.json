@@ -1,0 +1,21 @@
+{
+  "clips": [
+    {
+      "in": 0,
+      "out": 2,
+      "source": {
+        "in": 0,
+        "out": 2,
+        "trackId": "V1",
+        "uri": "fixtures/test_bars_480p_30fps_5s.mp4"
+      },
+      "track": {
+        "number": 1,
+        "type": "video"
+      }
+    }
+  ],
+  "fps": 30,
+  "height": 1080,
+  "width": 1920
+}

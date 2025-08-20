@@ -1,0 +1,49 @@
+{
+  "clips": [
+    {
+      "in": 0,
+      "out": 1,
+      "source": {
+        "in": 0,
+        "out": 1,
+        "trackId": "V1",
+        "uri": "fixtures/counter_1080p_30fps_10s.mp4"
+      },
+      "track": {
+        "number": 1,
+        "type": "video"
+      }
+    },
+    {
+      "in": 1,
+      "out": 2,
+      "source": {
+        "in": 8,
+        "out": 9,
+        "trackId": "V1",
+        "uri": "fixtures/counter_1080p_30fps_10s.mp4"
+      },
+      "track": {
+        "number": 1,
+        "type": "video"
+      }
+    },
+    {
+      "in": 2,
+      "out": 3,
+      "source": {
+        "in": 3,
+        "out": 4,
+        "trackId": "V1",
+        "uri": "fixtures/counter_1080p_30fps_10s.mp4"
+      },
+      "track": {
+        "number": 1,
+        "type": "video"
+      }
+    }
+  ],
+  "fps": 30,
+  "height": 1080,
+  "width": 1920
+}
