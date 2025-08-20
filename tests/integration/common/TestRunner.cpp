@@ -67,7 +67,7 @@ ComparisonResult TestRunner::compareRenders(const std::string& edlPath,
 	result.refRenderTime = std::chrono::duration<double, std::milli>(refEnd - refStart).count();
 	
 	if (!refSuccess) {
-		result.errorMsg = "Reference renderer failed";
+		result.errorMsg = "Reference renderer failed (Docker may not be running or image not loaded)";
 		return result;
 	}
 	
@@ -108,8 +108,11 @@ bool TestRunner::runEdl2ffmpeg(const std::string& edlPath,
 	
 	auto result = executeCommand(cmd);
 	
-	if (verbose_ && result.exitCode != 0) {
-		std::cerr << "edl2ffmpeg stderr: " << result.stderr << std::endl;
+	if (result.exitCode != 0) {
+		if (verbose_) {
+			std::cerr << "edl2ffmpeg failed with exit code: " << result.exitCode << std::endl;
+			std::cerr << "Output: " << result.stdout << std::endl;
+		}
 	}
 	
 	return result.exitCode == 0 && fs::exists(outputPath);
@@ -126,11 +129,19 @@ bool TestRunner::runReference(const std::string& edlPath,
 	
 	auto result = executeCommand(cmd);
 	
-	if (verbose_ && result.exitCode != 0) {
-		std::cerr << "Reference stderr: " << result.stderr << std::endl;
+	if (result.exitCode != 0) {
+		if (verbose_) {
+			std::cerr << "Reference failed with exit code: " << result.exitCode << std::endl;
+			std::cerr << "Output: " << result.stdout << std::endl;
+		}
 	}
 	
-	return result.exitCode == 0 && fs::exists(outputPath);
+	bool exists = fs::exists(outputPath);
+	if (!exists && verbose_) {
+		std::cerr << "Reference output file not created: " << outputPath << std::endl;
+	}
+	
+	return result.exitCode == 0 && exists;
 }
 
 std::string TestRunner::getTempPath(const std::string& suffix) {
@@ -244,6 +255,8 @@ void TestRunner::findExecutables() {
 		edl2ffmpegPath_ = "./edl2ffmpeg";
 	} else if (fs::exists("../edl2ffmpeg")) {
 		edl2ffmpegPath_ = "../edl2ffmpeg";
+	} else if (fs::exists("../build/edl2ffmpeg")) {
+		edl2ffmpegPath_ = "../build/edl2ffmpeg";
 	} else if (fs::exists("../../build/edl2ffmpeg")) {
 		edl2ffmpegPath_ = "../../build/edl2ffmpeg";
 	} else {
@@ -259,6 +272,11 @@ void TestRunner::findExecutables() {
 		referenceScript_ = "scripts/ftv_toffmpeg_wrapper_full.sh";
 	} else {
 		referenceScript_ = "ftv_toffmpeg_wrapper_full.sh";  // Hope it's in PATH
+	}
+	
+	if (verbose_) {
+		std::cout << "edl2ffmpeg path: " << edl2ffmpegPath_ << std::endl;
+		std::cout << "Reference script: " << referenceScript_ << std::endl;
 	}
 }
 

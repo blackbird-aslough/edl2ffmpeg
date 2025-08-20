@@ -82,18 +82,24 @@ for i in "${!ALL_ARGS[@]}"; do
     esac
 done
 
-# Add mounts
+# Add mounts (skip /tmp as it will be handled separately)
 for mount in "${MOUNT_PATHS[@]}"; do
-    DOCKER_ARGS+=(-v "$mount:$mount:ro")
+    if [[ "$mount" != "/tmp" ]]; then
+        DOCKER_ARGS+=(-v "$mount:$mount:ro")
+    fi
 done
 
 # Always mount current directory to /work for Linux compatibility (writable for output)
 CURRENT_DIR="$(pwd)"
 DOCKER_ARGS+=(-v "$CURRENT_DIR:/work:rw")
 
-# Mount macOS temp directory
-if [[ -n "$TMPDIR" ]]; then
-    DOCKER_ARGS+=(-v "$TMPDIR:/tmp:rw")
+# Mount temp directory for output files
+# Always mount /tmp as writable for temporary files
+DOCKER_ARGS+=(-v "/tmp:/tmp:rw")
+
+# If TMPDIR is set and different from /tmp, mount it too
+if [[ -n "$TMPDIR" ]] && [[ "$TMPDIR" != "/tmp" ]]; then
+    DOCKER_ARGS+=(-v "$TMPDIR:$TMPDIR:rw")
 fi
 
 # Setup for real-time output

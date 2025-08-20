@@ -9,7 +9,7 @@ namespace fs = std::filesystem;
 
 TEST_CASE("Single clip renders correctly", "[approval][clips][quick]") {
 	test::TestRunner runner;
-	runner.setVerbose(false);
+	runner.setVerbose(true);  // Enable verbose for debugging
 	
 	auto edl = test::templates::basicSingleClip(
 		"fixtures/test_bars_1080p_30fps_10s.mp4", 3.0);
@@ -21,6 +21,12 @@ TEST_CASE("Single clip renders correctly", "[approval][clips][quick]") {
 	file.close();
 	
 	auto result = runner.compareRenders(edlPath);
+	
+	if (!result.completed) {
+		INFO("Error: " << result.errorMsg);
+		INFO("Our output: " << runner.getLastOurOutput());
+		INFO("Ref output: " << runner.getLastRefOutput());
+	}
 	
 	REQUIRE(result.completed);
 	CHECK(result.avgPSNR > 40.0);  // Should be nearly identical
