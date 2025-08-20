@@ -103,8 +103,7 @@ CompositorInstruction InstructionGenerator::createInstruction(const edl::Clip& c
 			const auto& mediaSource = std::get<edl::MediaSource>(source);
 			instruction.type = CompositorInstruction::DrawFrame;
 			instruction.uri = mediaSource.uri;
-			// Note: flip field doesn't exist in MediaSource anymore
-			// instruction.flip = mediaSource.flip;
+			// Note: gamma parameter is parsed but not applied as an effect
 		} else if (std::holds_alternative<edl::GenerateSource>(source)) {
 			// Generated source (black, color, test pattern)
 			const auto& genSource = std::get<edl::GenerateSource>(source);
@@ -147,6 +146,7 @@ CompositorInstruction InstructionGenerator::createInstruction(const edl::Clip& c
 			const auto& mediaSource = std::get<edl::MediaSource>(source);
 			instruction.type = CompositorInstruction::DrawFrame;
 			instruction.uri = mediaSource.uri;
+			// Note: gamma parameter is parsed but not applied as an effect
 		} else if (std::holds_alternative<edl::GenerateSource>(source)) {
 			const auto& genSource = std::get<edl::GenerateSource>(source);
 			if (genSource.type == edl::GenerateSource::Black) {
@@ -210,21 +210,7 @@ CompositorInstruction InstructionGenerator::createInstruction(const edl::Clip& c
 		}
 	}
 	
-	// Handle simple inline effects (backward compatibility)
-	for (const auto& effect : clip.effects) {
-		Effect compEffect;
-		if (effect.type == "brightness") {
-			compEffect.type = Effect::Brightness;
-			compEffect.strength = effect.strength;
-		} else if (effect.type == "contrast") {
-			compEffect.type = Effect::Contrast;
-			compEffect.strength = effect.strength;
-		} else if (effect.type == "saturation") {
-			compEffect.type = Effect::Saturation;
-			compEffect.strength = effect.strength;
-		}
-		instruction.effects.push_back(compEffect);
-	}
+
 	
 	return instruction;
 }

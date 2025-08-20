@@ -190,7 +190,7 @@ struct Clip {
 	std::optional<TextFormat> textFormat;
 	std::map<int, double> channelMap;  // Audio channel mapping
 	int sync = 0;             // Sync group
-	std::vector<SimpleEffect> effects;  // Simple inline effects (backward compat)
+
 	
 	// Internal use
 	bool isNullClip = false;  // True if this is a null clip for alignment
